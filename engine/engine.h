@@ -3,10 +3,10 @@
 
 #include <sys/types.h>
 
-typedef struct grrNfa {
+typedef struct grrNfaStruct *grrNfa;
 
-} grrNfa;
+int grrCompilePattern(const char *string, size_t len, grrNfa *nfa);
 
-int grrCompilePattern(const char *string, size_t len, grrNfa **nfa);
+void grrFreeNfa(grrNfa nfa);
 
 #endif // __GRR_ENGINE_H__
