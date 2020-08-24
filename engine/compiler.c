@@ -4,18 +4,16 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "engine.h"
+#include "compiler.h"
+#include "nfaInternals.h"
 #include "grrUtil.h"
 
-typedef struct nfaTransition {
-	unsigned char symbols[32];
-	int motion;
-} nfaTransition;
+#define GRR_INVALID_CHARACTER 0x00
+#define GRR_WHITESPACE_CODE 0x01
+#define GRR_WILDCARD_CODE 0x02
+#define GRR_EMPTY_TRANSITION_CODE 0x03
 
-typedef struct nfaNode {
-	nfaTransition *transitios;
-	unsigned int numTransitions;
-} nfaNode;
+#define GRR_NFA_PADDING 5
 
 typedef struct nfaStackFrame {
 	grrNfa nfa;
@@ -25,17 +23,12 @@ typedef struct nfaStackFrame {
 
 typedef struct nfaStack {
 	nfaStackFrame *frames;
-	size_t capacity;
 	size_t length;
+	size_t capacity;
 } nfaStack;
 
-struct grrNfaStruct {
-	nfaNode *nodes;
-	size_t length;
-	size_t capacity;
-};
-
-#define NEW_NFA() calloc(1,sizeof(*grrNfa))
+#define NEW_NFA() calloc(1,sizeof(struct grrNfaStruct))
+#define SET_SYMBOL(transition,c) (transition)->symbols[(c)/8] |= ( 1 << ((c)%8) )
 
 static void printIdxForString(const char *string, size_t len, size_t idx);
 static int pushNfaToStack(nfaStack *stack, grrNfa nfa, size_t idx, char reason);
@@ -44,6 +37,7 @@ static ssize_t findParensInStack(nfaStack *stack);
 static char resolveEscapeCharacter(char c) __attribute__ ((pure));
 static grrNfa createCharacterNfa(char c);
 static int concatenateNfas(grrNfa nfa1, grrNfa nfa2);
+static int addDisjunctionToNfa(grrNfa nfa1, grrNfa nfa2);
 static int checkForQuantifier(grrNfa nfa, char quantifier);
 
 int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
@@ -57,7 +51,7 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 	}
 
 	for (size_t idx=0; idx<len; idx++) {
-		if ( !isprint(string[k]) ) {
+		if ( !isprint(string[idx]) ) {
 			fprintf(stderr,"Unprintable character at index %zu: 0x%02x\n", idx, (unsigned char)string[idx]);
 			return GRR_RET_BAD_DATA;
 		}
@@ -68,7 +62,8 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 		char character;
 		grrNfa temp;
 
-		switch ( string[idx] ) {
+		character=string[idx];
+		switch ( character ) {
 			case '^':
 			// 
 			break;
@@ -78,7 +73,8 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 			break;
 
 			case '(':
-			ret=pushNfaToStack(&stack,current,idx,'(');
+			case '|':
+			ret=pushNfaToStack(&stack,current,idx,character)	;
 			if ( ret != GRR_RET_OK ) {
 				goto error;
 			}
@@ -98,11 +94,14 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 				goto error;
 			}
 
-			if ( stackIdx < stack.length-1 ) {
+			if ( stackIdx == stack.length-1 ) { // The parentheses were empty.
+				grrFreeNfa(current);
+			}
+			else {
 				temp=stack.frames[stackIdx+1].nfa;
 				stack.frames[stackIdx+1].nfa=NULL;
 
-				for (ssize_t k=stackIdx+2; k<stack.length; k++) {
+				for (ssize_t k=stackIdx+2; (size_t)k<stack.length; k++) {
 					ret=addDisjunctionToNfa(temp,stack.frames[k].nfa);
 					if ( ret != GRR_RET_OK ) {
 						grrFreeNfa(temp);
@@ -131,58 +130,21 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 					goto error;
 				}
 			}
-			else { // The parentheses were empty.
-				grrFreeNfa(current);
-			}
 			current=stack.frames[stackIdx].nfa;
-			stack.frames.length=stackIdx;
-			break;
-
-			case '|':
-			ret=pushNfaToStack(&stack,current,idx,'|');
-			if ( ret != GRR_RET_OK ) {
-				goto error;
-			}
-			current=NEW_NFA();
-			if ( !current ) {
-				ret=GRR_RET_OUT_OF_MEMORY;
-				goto error;
-			}
-			break;
-
-			case '\\':
-			character=resolveEscapeCharacter(string[++idx]);
-			if ( character == '\0' ) {
-				fprintf(stderr,"Invalid character escape:\n");
-				printIdxForString(string,len,idx);
-				ret=GRR_RET_BAD_DATA;
-				goto error;
-			}
-
-			temp=createCharacterNfa(character);
-			if ( !temp ) {
-				ret=GRR_RET_OUT_OF_MEMORY;
-				goto error;
-			}
-			ret=checkForQuantifier(temp,string[idx+1]);
-			if ( ret == GRR_RET_OK ) {
-				idx++;
-			}
-			else if ( ret != GRR_RET_NOT_FOUND ) {
-				grrFreeNfa(temp);
-				goto error;
-			}
-
-			ret=concatenateNfas(current,temp);
-			if ( ret != GRR_RET_OK ) {
-				grrFreeNfa(temp);
-				goto error;
-			}
+			stack.length=stackIdx;
 			break;
 
 			case '[':
 			// 
 			break;
+
+			case '*':
+			case '+':
+			case '?':
+			fprintf(stderr,"Invalid use of quantifier:\n");
+			printIdxForString(string,len,idx);
+			ret=GRR_RET_BAD_DATA;
+			goto error;
 
 			case '{':
 			case '}':
@@ -191,19 +153,23 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 			ret=GRR_RET_BAD_DATA;
 			goto error;
 
-			case '\t':
-			fprintf(stderr,"Illegal tab character found at position %zu.  An explicit '\\t' is required.\n", idx);
-			ret=GRR_RET_BAD_DATA;
-			goto error;
+			case '\\':
+			character=resolveEscapeCharacter(string[++idx]);
+			if ( character == GRR_INVALID_CHARACTER ) {
+				fprintf(stderr,"Invalid character escape:\n");
+				printIdxForString(string,len,idx);
+				ret=GRR_RET_BAD_DATA;
+				goto error;
+			}
+			goto add_character;
 
-			case '\r':
-			case '\n':
-			fprintf(stderr,"Illegal newline character found at position %zu.\n", idx);
-			ret=GRR_RET_BAD_DATA;
-			goto error;
+			case '.':
+			character=GRR_WILDCARD_CODE;
+			goto add_character;
 
 			default:
-			temp=createCharacterNfa(string[idx]);
+			add_character:
+			temp=createCharacterNfa(character);
 			if ( !temp ) {
 				ret=GRR_RET_OUT_OF_MEMORY;
 				goto error;
@@ -226,7 +192,7 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 		}
 	}
 
-	for (size_t k=0; k<stack.len; k++) {
+	for (size_t k=0; k<stack.length; k++) {
 		if ( !stack.frames[k].nfa ) {
 			continue;
 		}
@@ -255,21 +221,6 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 	return ret;
 }
 
-void grrFreeNfa(grrNfa nfa) {
-	size_t len;
-
-	if ( !nfa ) {
-		return;
-	}
-
-	len=nfa->length;
-	for (size_t k=0; k<len; k++) {
-		free(nfa->nodes[k].transitions);
-	}
-
-	free(nfa);
-}
-
 static void printIdxForString(const char *string, size_t len, size_t idx) {
 	char tab='\t';
 
@@ -282,24 +233,51 @@ static void printIdxForString(const char *string, size_t len, size_t idx) {
 	fprintf(stderr,"^\n");
 }
 
-static int pushNfaToStack(nfaStack *stack, grrNfa *nfa, size_t idx, char reason) {
+static int pushNfaToStack(nfaStack *stack, grrNfa nfa, size_t idx, char reason) {
+	if ( stack->length == stack->capacity ) {
+		nfaStackFrame *success;
+		size_t newCapacity;
 
+		newCapacity=stack->capacity+GRR_NFA_PADDING;
+		success=realloc(stack->frames,sizeof(*success)*newCapacity);
+		if ( !success ) {
+			return GRR_RET_OUT_OF_MEMORY;
+		}
+
+		stack->frames=success;
+		stack->capacity=newCapacity;
+	}
+
+	stack->frames[stack->length].nfa=nfa;
+	stack->frames[stack->length].idx=idx;
+	stack->frames[stack->length].reason=reason;
+	stack->length++;
+
+	return GRR_RET_OK;
 }
 
 static void freeNfaStack(nfaStack *stack) {
+	size_t len;
 
+	len=stack->length;
+	for (size_t k=0; k<len; k++) {
+		grrFreeNfa(stack->frames[k].nfa);
+		stack->frames[k].nfa=NULL;
+	}
 }
 
 static ssize_t findParensInStack(nfaStack *stack) {
-	
+	for (ssize_t idx=(ssize_t)stack->length-1; idx>=0; idx--) {
+		if ( stack->frames[idx].nfa && stack->frames[idx].reason == '(' ) {
+			return idx;
+		}
+	}
+
+	return -1;
 }
 
 static char resolveEscapeCharacter(char c) {
 	switch ( c ) {
-		case 'n':
-		return '\n';
-		break;
-
 		case 't':
 		return '\t';
 		break;
@@ -317,25 +295,80 @@ static char resolveEscapeCharacter(char c) {
 		case '?':
 		case '^':
 		case '$':
+		case '|':
 		return c;
 		break;
 
-		case 's': // Whitespace
-		return 0x01;
+		case 's':
+		return GRR_WHITESPACE_CODE;
 
-		default: // Invalid escape character.
-		return '\0';
+		default:
+		return GRR_INVALID_CHARACTER;
 	}
 }
 
 static grrNfa createCharacterNfa(char c) {
+	grrNfa nfa;
+	nfaNode *nodes;
+	nfaTransition *transition;
 
+	nodes=calloc(GRR_NFA_PADDING,sizeof(*nodes));
+	if ( !nodes ) {
+		return NULL;
+	}
+
+	nodes->transitions=calloc(1,sizeof(*(nodes->transitions)));
+	if ( !nodes->transitions ) {
+		free(nodes);
+		return NULL;
+	}
+	nodes->length=nodes->capacity=1;
+
+	transition=nodes->transitions;
+	transition->motion=1;
+
+	switch ( c ) {
+		case GRR_WHITESPACE_CODE:
+		SET_SYMBOL(transition,' ');
+		SET_SYMBOL(transition,'\t');
+		break;
+
+		case GRR_WILDCARD_CODE:
+		memset(transition->symbols,0xff,sizeof(transition->symbols));
+		transition->symbols[0]=0xfe;
+		break;
+
+		case GRR_EMPTY_TRANSITION_CODE:
+		transition->symbols[0]=0x01;
+		break;
+
+		default:
+		SET_SYMBOL(transition,c);
+		break;
+	}
+
+	nfa=NEW_NFA();
+	if ( !nfa ) {
+		free(nodes->transitions);
+		free(nodes);
+		return NULL;
+	}
+
+	nfa->nodes=nodes;
+	nfa->length=1;
+	nfa->capacity=GRR_NFA_PADDING;
+
+	return nfa;
 }
 
 static int concatenateNfas(grrNfa nfa1, grrNfa nfa2) {
+	return GRR_RET_NOT_IMPLEMENTED;
+}
 
+static int addDisjunctionToNfa(grrNfa nfa1, grrNfa nfa2) {
+	return GRR_RET_NOT_IMPLEMENTED;
 }
 
 static int checkForQuantifier(grrNfa nfa, char quantifier) {
-
+	return GRR_RET_NOT_IMPLEMENTED;
 }
