@@ -13,6 +13,8 @@
 #define GRR_WILDCARD_CODE 0x02
 #define GRR_EMPTY_TRANSITION_CODE 0x03
 
+#define GRR_NFA_PADDING 5
+
 typedef struct nfaStackFrame {
 	grrNfa nfa;
 	size_t idx;
@@ -85,7 +87,7 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 
 			case ')':
 			stackIdx=findParensInStack(&stack);
-			if ( stackIdx == -1 ) {
+			if ( stackIdx < 0 ) {
 				fprintf(stderr,"Closing parenthesis not matched by preceding opening parenthesis:\n");
 				printIdxForString(string,len,idx);
 				ret=GRR_RET_BAD_DATA;
@@ -99,7 +101,7 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 				temp=stack.frames[stackIdx+1].nfa;
 				stack.frames[stackIdx+1].nfa=NULL;
 
-				for (ssize_t k=stackIdx+2; (size_t)k<stack.length; k++) {
+				for (size_t k=stackIdx+2; k<stack.length; k++) {
 					ret=addDisjunctionToNfa(temp,stack.frames[k].nfa);
 					if ( ret != GRR_RET_OK ) {
 						grrFreeNfa(temp);
@@ -370,13 +372,13 @@ static void setSymbol(nfaTransition *transition, char c) {
 }
 
 static int concatenateNfas(grrNfa nfa1, grrNfa nfa2) {
-    size_t newCapacity;
+    size_t newLen;
     nfaNode *success;
 
     newLen=nfa1->length+nfa2->length;
     success=realloc(nfa1->nodes,sizeof(*(nfa1->nodes))*newLen);
     if ( !success ) {
-        return GR_RET_OUT_OF_MEMORY;
+        return GRR_RET_OUT_OF_MEMORY;
     }
 
     nfa1->nodes=success;
@@ -389,37 +391,78 @@ static int concatenateNfas(grrNfa nfa1, grrNfa nfa2) {
 }
 
 static int addDisjunctionToNfa(grrNfa nfa1, grrNfa nfa2) {
-    size_t newLen, len1, len2;
+    unsigned int needNewDisjunction=0, numTransitions, newLen, len1, len2;
     nfaNode *success;
+
+    numTransitions=nfa1->nodes[0].numTransitions;
+    for (unsigned int k=0; !needNewDisjunction && k<numTransitions; k++) {
+    	nfaTransition *transition;
+
+    	transition=nfa1->nodes[0].transitions+k;
+    	if ( transition->symbols[0] != 0x01 ) {
+    		needNewDisjunction=1;
+    		break;
+    	}
+    	for (unsigned int j=1; j<sizeof(transition->symbols); j++) {
+    		if ( transition->symbols[k] ) {
+    			needNewDisjunction=1;
+    			break;
+    		}
+    	}
+    }
 
     len1=nfa1->length;
     len2=nfa2->length;
-    newLen=len1+len2+1;
+    newLen=len1+len2+needNewDisjunction;
     success=realloc(nfa1->nodes,sizeof(*success)*newLen);
     if ( !success ) {
         return GRR_RET_OUT_OF_MEMORY;
     }
 
-    memmove(nfa1->nodes+1,nfa1->nodes,sizeof(*(nfa1->nodes))*len1);
-    memcpy(nfa1->nodes+1+len1,nfa2->nodes,sizeof(*(nfa2->nodes))*len2);
+    if ( needNewDisjunction ) {
+    	memmove(nfa1->nodes+1,nfa1->nodes,sizeof(*(nfa1->nodes))*len1);
+    }
+    memcpy(nfa1->nodes+needNewDisjunction+len1,nfa2->nodes,sizeof(*(nfa2->nodes))*len2);
     nfa1->length=newLen;
 
-    nfa1->nodes[0]->transitions=calloc(2,sizeof(nfaTransition));
-    if ( !nfa1->nodes[0]->transitions ) {
-        return GRR_RET_OUT_OF_MEMORY;
-    }
-    nfa1->nodes[0]->numTransitions=2;
+    if ( needNewDisjunction ) {
+	    nfa1->nodes[0].transitions=calloc(2,sizeof(nfaTransition));
+	    if ( !nfa1->nodes[0].transitions ) {
+	        return GRR_RET_OUT_OF_MEMORY;
+	    }
+	    nfa1->nodes[0].numTransitions=2;
 
-    setSymbol(nfa1->nodes[0]->transitions,GRR_EMPTY_TRANSITION_CODE);
-    nfa1->nodes[0]->transitions[0].motion=1;
+	    setSymbol(nfa1->nodes[0].transitions,GRR_EMPTY_TRANSITION_CODE);
+	    nfa1->nodes[0].transitions[0].motion=1;
 
-    setSymbol(nfa1->nodes[0]->transitions+1,GRR_EMPTY_TRANSITION_CODE);
-    nfa1->nodes[0]->transitions[1].motion=len1+1;
+	    setSymbol(nfa1->nodes[0].transitions+1,GRR_EMPTY_TRANSITION_CODE);
+	    nfa1->nodes[0].transitions[1].motion=len1+1;
+	}
+	else {
+		nfaTransition *success, *transition;
 
-    for (size_t k=0; k<len1; k++) {
-        for (size_t j=0; j<nfa1->nodes[k+1].numTransitions; j++) {
-            if ( (ssize_t)k + nfa1->nodes[k+1]->transitions[j].motion == len1 ) {
-                nfa1->nodes[k+1]->transitions[j].motion += len2;
+		success=realloc(nfa1->nodes[0].transitions,sizeof(*success)*(nfa1->nodes[0].numTransitions+1));
+		if ( !success ) {
+			return GRR_RET_OUT_OF_MEMORY;
+		}
+		nfa1->nodes[0].transitions=success;
+
+		transition=nfa1->nodes[0].transitions+nfa1->nodes[0].numTransitions;
+		memset(transition->symbols,0,sizeof(transition->symbols));
+		setSymbol(transition,GRR_EMPTY_TRANSITION_CODE);
+		transition->motion=len1;
+
+		nfa1->nodes[0].numTransitions++;
+	}
+
+    for (unsigned int k=0; k<len1; k++) {
+    	unsigned int actualIdx;
+
+    	actualIdx=k+needNewDisjunction;
+
+        for (unsigned int j=0; j<nfa1->nodes[actualIdx].numTransitions; j++) {
+            if ( (int)k + nfa1->nodes[actualIdx].transitions[j].motion == len1 ) {
+                nfa1->nodes[actualIdx].transitions[j].motion += len2;
             }
         }
     }
