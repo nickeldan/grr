@@ -391,78 +391,37 @@ static int concatenateNfas(grrNfa nfa1, grrNfa nfa2) {
 }
 
 static int addDisjunctionToNfa(grrNfa nfa1, grrNfa nfa2) {
-    unsigned int needNewDisjunction=0, numTransitions, newLen, len1, len2;
+    unsigned int newLen, len1, len2;
     nfaNode *success;
-
-    numTransitions=nfa1->nodes[0].numTransitions;
-    for (unsigned int k=0; !needNewDisjunction && k<numTransitions; k++) {
-    	nfaTransition *transition;
-
-    	transition=nfa1->nodes[0].transitions+k;
-    	if ( transition->symbols[0] != 0x01 ) {
-    		needNewDisjunction=1;
-    		break;
-    	}
-    	for (unsigned int j=1; j<sizeof(transition->symbols); j++) {
-    		if ( transition->symbols[k] ) {
-    			needNewDisjunction=1;
-    			break;
-    		}
-    	}
-    }
 
     len1=nfa1->length;
     len2=nfa2->length;
-    newLen=len1+len2+needNewDisjunction;
+    newLen=1+len1+len2;
     success=realloc(nfa1->nodes,sizeof(*success)*newLen);
     if ( !success ) {
         return GRR_RET_OUT_OF_MEMORY;
     }
 
-    if ( needNewDisjunction ) {
-    	memmove(nfa1->nodes+1,nfa1->nodes,sizeof(*(nfa1->nodes))*len1);
-    }
-    memcpy(nfa1->nodes+needNewDisjunction+len1,nfa2->nodes,sizeof(*(nfa2->nodes))*len2);
+	memmove(nfa1->nodes+1,nfa1->nodes,sizeof(*(nfa1->nodes))*len1);
+    memcpy(nfa1->nodes+1+len1,nfa2->nodes,sizeof(*(nfa2->nodes))*len2);
     nfa1->length=newLen;
 
-    if ( needNewDisjunction ) {
-	    nfa1->nodes[0].transitions=calloc(2,sizeof(nfaTransition));
-	    if ( !nfa1->nodes[0].transitions ) {
-	        return GRR_RET_OUT_OF_MEMORY;
-	    }
-	    nfa1->nodes[0].numTransitions=2;
+    nfa1->nodes[0].transitions=calloc(2,sizeof(nfaTransition));
+    if ( !nfa1->nodes[0].transitions ) {
+        return GRR_RET_OUT_OF_MEMORY;
+    }
+    nfa1->nodes[0].numTransitions=2;
 
-	    setSymbol(nfa1->nodes[0].transitions,GRR_EMPTY_TRANSITION_CODE);
-	    nfa1->nodes[0].transitions[0].motion=1;
+    setSymbol(nfa1->nodes[0].transitions,GRR_EMPTY_TRANSITION_CODE);
+    nfa1->nodes[0].transitions[0].motion=1;
 
-	    setSymbol(nfa1->nodes[0].transitions+1,GRR_EMPTY_TRANSITION_CODE);
-	    nfa1->nodes[0].transitions[1].motion=len1+1;
-	}
-	else {
-		nfaTransition *success, *transition;
-
-		success=realloc(nfa1->nodes[0].transitions,sizeof(*success)*(nfa1->nodes[0].numTransitions+1));
-		if ( !success ) {
-			return GRR_RET_OUT_OF_MEMORY;
-		}
-		nfa1->nodes[0].transitions=success;
-
-		transition=nfa1->nodes[0].transitions+nfa1->nodes[0].numTransitions;
-		memset(transition->symbols,0,sizeof(transition->symbols));
-		setSymbol(transition,GRR_EMPTY_TRANSITION_CODE);
-		transition->motion=len1;
-
-		nfa1->nodes[0].numTransitions++;
-	}
+    setSymbol(nfa1->nodes[0].transitions+1,GRR_EMPTY_TRANSITION_CODE);
+    nfa1->nodes[0].transitions[1].motion=len1+1;
 
     for (unsigned int k=0; k<len1; k++) {
-    	unsigned int actualIdx;
-
-    	actualIdx=k+needNewDisjunction;
-
-        for (unsigned int j=0; j<nfa1->nodes[actualIdx].numTransitions; j++) {
-            if ( (int)k + nfa1->nodes[actualIdx].transitions[j].motion == len1 ) {
-                nfa1->nodes[actualIdx].transitions[j].motion += len2;
+        for (unsigned int j=0; j<nfa1->nodes[k+1].numTransitions; j++) {
+            if ( (int)k + nfa1->nodes[k+1].transitions[j].motion == len1 ) {
+                nfa1->nodes[k+1].transitions[j].motion += len2;
             }
         }
     }
@@ -472,5 +431,63 @@ static int addDisjunctionToNfa(grrNfa nfa1, grrNfa nfa2) {
 }
 
 static int checkForQuantifier(grrNfa nfa, char quantifier) {
-	return GRR_RET_NOT_IMPLEMENTED;
+	unsigned int question=0, plus=0;
+
+	switch ( quantifier ) {
+		case '?':
+		question=1;
+		break;
+
+		case '+':
+		plus=1;
+		break;
+
+		case '*':
+		question=plus=1;
+		break;
+
+		default:
+		return GRR_RET_NOT_FOUND;
+	}
+
+	if ( question ) {
+		unsigned int numTransitions;
+		nfaTransition *success;
+
+		numTransitions=nfa->nodes[0].numTransitions;
+		success=realloc(nfa->nodes[0].transitions,sizeof(*success)*(numTransitions+1));
+		if ( !success ) {
+			return GRR_RET_OUT_OF_MEMORY;
+		}
+
+		memset(success[numTransitions].symbols,0,sizeof(success[numTransitions].symbols));
+		setSymbol(success+numTransitions,GRR_EMPTY_TRANSITION_CODE);
+		success[numTransitions].motion=nfa->length;
+		nfa->nodes[0].transitions=success;
+		nfa->nodes[0].numTransitions++;
+	}
+
+	if ( plus ) {
+		int length;
+		nfaNode *success;
+
+		length=nfa->length;
+		success=realloc(nfa->nodes,sizeof(*success)*(length+1));
+		if ( !success ) {
+			return GRR_RET_OUT_OF_MEMORY;
+		}
+		nfa->nodes=success;
+
+		nfa->nodes[length].transitions=calloc(1,sizeof(nfaTransition));
+		if ( !nfa->nodes[length].transitions ) {
+			return GRR_RET_OUT_OF_MEMORY;
+		}
+		nfa->nodes[length].numTransitions=1;
+		setSymbol(nfa->nodes[length].transitions,GRR_EMPTY_TRANSITION_CODE);
+		nfa->nodes[length].transitions[0].motion=-1*length;
+
+		nfa->length++;
+	}
+
+	return GRR_RET_OK;
 }

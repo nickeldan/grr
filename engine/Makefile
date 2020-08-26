@@ -18,7 +18,7 @@ $(LIB_NAME).a: $(OBJECT_FILES)
 nfa.o: nfa.c nfaDef.h nfaInternals.h
 	$(CC) $(COMPILER_FLAGS) -c $<
 
-nfaCompiler.o: nfaCompiler.c nfa.h nfaInternals.h nfaDef.h ../util/grrUtil.h
+nfaCompiler.o: nfaCompiler.c nfaDef.h nfaInternals.h ../util/grrUtil.h
 	$(CC) $(COMPILER_FLAGS) $(INCLUDES) -c $<
 
 nfaRuntime.o: nfaRuntime.c nfaDef.h nfaInternals.h ../util/grrUtil.h
