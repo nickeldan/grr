@@ -21,7 +21,7 @@ nfa.o: nfa.c nfaDef.h nfaInternals.h
 nfaCompiler.o: nfaCompiler.c nfaDef.h nfaInternals.h ../util/grrUtil.h
 	$(CC) $(COMPILER_FLAGS) $(INCLUDES) -c $<
 
-nfaRuntime.o: nfaRuntime.c nfaDef.h nfaInternals.h ../util/grrUtil.h
+nfaRuntime.o: nfaRuntime.c nfaRuntime.h nfaDef.h nfaInternals.h ../util/grrUtil.h
 	$(CC) $(COMPILER_FLAGS) $(INCLUDES) -c $<
 
 clean:

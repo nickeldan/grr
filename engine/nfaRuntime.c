@@ -1,10 +1,11 @@
 #include "nfaRuntime.h"
 #include "nfaInternals.h"
+#include "../grrUtil.h"
 
-bool grrNfaMatch(const grrNfa nfa, const char *string, size_t len) {
-	return false; // placeholder code
+int grrNfaMatch(const grrNfa nfa, const char *string, size_t len) {
+	return GRR_RET_NOT_FOUND; // placeholder code
 }
 
-bool grrNfaSearch(const grrNfa nfa, const char *string, size_t len, size_t *start, size_t *end) {
-	return false; // placeholder code
+int grrNfaSearch(const grrNfa nfa, const char *string, size_t len, size_t *start, size_t *end) {
+	return GRR_RET_NOT_FOUND; // placeholder code
 }
