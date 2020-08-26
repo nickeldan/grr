@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 
-#include "nfa.h"
+#include "nfaDef.h"
 
 #define GRR_NFA_ASCII_OFFSET (1+1) // wildcard + tab
 #define GRR_NFA_NUM_SYMBOLS (GRR_NFA_ASCII_OFFSET+0x7f-0x20) // ASCII printables

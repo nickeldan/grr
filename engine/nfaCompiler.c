@@ -4,7 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "compiler.h"
+#include "nfaCompiler.h"
 #include "nfaInternals.h"
 #include "grrUtil.h"
 

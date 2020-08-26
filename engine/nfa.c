@@ -14,5 +14,6 @@ void grrFreeNfa(grrNfa nfa) {
 		free(nfa->nodes[k].transitions);
 	}
 
+	free(nfa->nodes);
 	free(nfa);
 }

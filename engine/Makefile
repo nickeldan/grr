@@ -8,16 +8,16 @@ LIB_NAME := grrengine
 
 all: $(LIB_NAME).so $(LIB_NAME).a
 
-$(LIB_NAME).so: compiler.o nfa.o
+$(LIB_NAME).so: nfaCompiler.o nfa.o
 	$(CC) -shared -o $@ $^
 
-$(LIB_NAME).a: compiler.o nfa.o
+$(LIB_NAME).a: nfaCompiler.o nfa.o
 	ar rcs $@ $^
 
-compiler.o: compiler.c compiler.h nfa.h nfaInternals.h ../util/grrUtil.h
+nfaCompiler.o: nfaCompiler.c nfaCompiler.h nfa.h nfaInternals.h nfaDef.h ../util/grrUtil.h
 	$(CC) $(COMPILER_FLAGS) $(INCLUDES) -c $<
 
-nfa.o: nfa.c nfa.h nfaInternals.h
+nfa.o: nfa.c nfaDef.h nfaInternals.h
 	$(CC) $(COMPILER_FLAGS) -c $<
 
 clean:

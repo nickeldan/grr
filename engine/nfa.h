@@ -1,7 +1,9 @@
 #ifndef __GRR_NFA_H__
 #define __GRR_NFA_H__
 
-typedef struct grrNfaStruct *grrNfa;
+#include "nfaDef.h"
+#include "nfaCompiler.h"
+#include "nfaRuntime.h"
 
 void grrFreeNfa(grrNfa nfa);
 
