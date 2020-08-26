@@ -13,8 +13,6 @@
 #define GRR_WILDCARD_CODE 0x02
 #define GRR_EMPTY_TRANSITION_CODE 0x03
 
-#define GRR_NFA_PADDING 5
-
 typedef struct nfaStackFrame {
 	grrNfa nfa;
 	size_t idx;
@@ -28,7 +26,6 @@ typedef struct nfaStack {
 } nfaStack;
 
 #define NEW_NFA() calloc(1,sizeof(struct grrNfaStruct))
-#define SET_SYMBOL(transition,c) (transition)->symbols[(c)/8] |= ( 1 << ((c)%8) )
 
 static void printIdxForString(const char *string, size_t len, size_t idx);
 static int pushNfaToStack(nfaStack *stack, grrNfa nfa, size_t idx, char reason);
@@ -36,6 +33,7 @@ static void freeNfaStack(nfaStack *stack);
 static ssize_t findParensInStack(nfaStack *stack);
 static char resolveEscapeCharacter(char c) __attribute__ ((pure));
 static grrNfa createCharacterNfa(char c);
+static void setSymbol(nfaTransition *transition, char c);
 static int concatenateNfas(grrNfa nfa1, grrNfa nfa2);
 static int addDisjunctionToNfa(grrNfa nfa1, grrNfa nfa2);
 static int checkForQuantifier(grrNfa nfa, char quantifier);
@@ -312,7 +310,7 @@ static grrNfa createCharacterNfa(char c) {
 	nfaNode *nodes;
 	nfaTransition *transition;
 
-	nodes=calloc(GRR_NFA_PADDING,sizeof(*nodes));
+	nodes=calloc(1,sizeof(*nodes));
 	if ( !nodes ) {
 		return NULL;
 	}
@@ -322,30 +320,11 @@ static grrNfa createCharacterNfa(char c) {
 		free(nodes);
 		return NULL;
 	}
-	nodes->length=nodes->capacity=1;
+	nodes->numTransitions=1;
 
 	transition=nodes->transitions;
 	transition->motion=1;
-
-	switch ( c ) {
-		case GRR_WHITESPACE_CODE:
-		SET_SYMBOL(transition,' ');
-		SET_SYMBOL(transition,'\t');
-		break;
-
-		case GRR_WILDCARD_CODE:
-		memset(transition->symbols,0xff,sizeof(transition->symbols));
-		transition->symbols[0]=0xfe;
-		break;
-
-		case GRR_EMPTY_TRANSITION_CODE:
-		transition->symbols[0]=0x01;
-		break;
-
-		default:
-		SET_SYMBOL(transition,c);
-		break;
-	}
+    setSymbol(transition,c);
 
 	nfa=NEW_NFA();
 	if ( !nfa ) {
@@ -356,17 +335,97 @@ static grrNfa createCharacterNfa(char c) {
 
 	nfa->nodes=nodes;
 	nfa->length=1;
-	nfa->capacity=GRR_NFA_PADDING;
 
 	return nfa;
 }
 
+static void setSymbol(nfaTransition *transition, char c) {
+    char c2;
+
+    switch ( c ) {
+        case GRR_WHITESPACE_CODE:
+        transition->symbols[0] |= 0x02; // tab
+        c2=' '-GRR_NFA_ASCII_ADJUSTMENT;
+        goto set_character;
+
+        case GRR_WILDCARD_CODE:
+        memset(transition->symbols+1,0xff,sizeof(transition->symbols)-1);
+        transition->symbols[0] |= 0xfe;
+        break;
+
+        case GRR_EMPTY_TRANSITION_CODE:
+        transition->symbols[0] |= 0x01;
+        break;
+
+        case '\t':
+        transition->symbols[0] |= 0x02;
+        break;
+
+        default:
+        c2=c-GRR_NFA_ASCII_ADJUSTMENT;
+        set_character:
+        transition->symbols[c2/8] |= ( 1 << (c2%8) );
+        break;
+    }
+}
+
 static int concatenateNfas(grrNfa nfa1, grrNfa nfa2) {
-	return GRR_RET_NOT_IMPLEMENTED;
+    size_t newCapacity;
+    nfaNode *success;
+
+    newLen=nfa1->length+nfa2->length;
+    success=realloc(nfa1->nodes,sizeof(*(nfa1->nodes))*newLen);
+    if ( !success ) {
+        return GR_RET_OUT_OF_MEMORY;
+    }
+
+    nfa1->nodes=success;
+    nfa1->length=newLen;
+
+    memcpy(nfa1->nodes+nfa1->length,nfa2->nodes,sizeof(*(nfa2->nodes))*nfa2->length);
+    grrFreeNfa(nfa2);
+
+    return GRR_RET_OK;
 }
 
 static int addDisjunctionToNfa(grrNfa nfa1, grrNfa nfa2) {
-	return GRR_RET_NOT_IMPLEMENTED;
+    size_t newLen, len1, len2;
+    nfaNode *success;
+
+    len1=nfa1->length;
+    len2=nfa2->length;
+    newLen=len1+len2+1;
+    success=realloc(nfa1->nodes,sizeof(*success)*newLen);
+    if ( !success ) {
+        return GRR_RET_OUT_OF_MEMORY;
+    }
+
+    memmove(nfa1->nodes+1,nfa1->nodes,sizeof(*(nfa1->nodes))*len1);
+    memcpy(nfa1->nodes+1+len1,nfa2->nodes,sizeof(*(nfa2->nodes))*len2);
+    nfa1->length=newLen;
+
+    nfa1->nodes[0]->transitions=calloc(2,sizeof(nfaTransition));
+    if ( !nfa1->nodes[0]->transitions ) {
+        return GRR_RET_OUT_OF_MEMORY;
+    }
+    nfa1->nodes[0]->numTransitions=2;
+
+    setSymbol(nfa1->nodes[0]->transitions,GRR_EMPTY_TRANSITION_CODE);
+    nfa1->nodes[0]->transitions[0].motion=1;
+
+    setSymbol(nfa1->nodes[0]->transitions+1,GRR_EMPTY_TRANSITION_CODE);
+    nfa1->nodes[0]->transitions[1].motion=len1+1;
+
+    for (size_t k=0; k<len1; k++) {
+        for (size_t j=0; j<nfa1->nodes[k+1].numTransitions; j++) {
+            if ( (ssize_t)k + nfa1->nodes[k+1]->transitions[j].motion == len1 ) {
+                nfa1->nodes[k+1]->transitions[j].motion += len2;
+            }
+        }
+    }
+
+    grrFreeNfa(nfa2);
+    return GRR_RET_OK;
 }
 
 static int checkForQuantifier(grrNfa nfa, char quantifier) {
