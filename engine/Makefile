@@ -3,7 +3,7 @@ COMPILER_FLAGS := -std=gnu99 -O3 -g -fpic -Wall
 INCLUDES := -I../util
 OBJECT_FILES := nfa.o nfaCompiler.o nfaRuntime.o
 
-LIB_NAME := grrengine
+LIB_NAME := libgrrengine
 
 .PHONY: all clean
 

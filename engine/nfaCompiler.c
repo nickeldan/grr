@@ -14,6 +14,7 @@
 #define GRR_EMPTY_TRANSITION_CODE 0x03
 #define GRR_FIRST_CHAR_CODE 0x04
 #define GRR_LAST_CHAR_CODE 0x05
+#define GRR_DIGIT_CODE 0x06
 
 #define GRR_NFA_PADDING 5
 
@@ -126,6 +127,14 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 			}
 			current=stack.frames[stackIdx].nfa;
 			stack.length=stackIdx;
+
+			ret=checkForQuantifier(current,string[idx+1]);
+			if ( ret == GRR_RET_OK ) {
+				idx++;
+			}
+			else if ( ret != GRR_RET_NOT_FOUND ) {
+				goto error;
+			}
 			break;
 
 			case '[':
@@ -310,6 +319,9 @@ static char resolveEscapeCharacter(char c) {
 		case 's':
 		return GRR_WHITESPACE_CODE;
 
+		case 'd':
+		return GRR_DIGIT_CODE;
+
 		default:
 		return GRR_INVALID_CHARACTER;
 	}
@@ -363,6 +375,13 @@ static void setSymbol(nfaTransition *transition, char c) {
 
         case GRR_LAST_CHAR_CODE:
         transition->symbols[0] |= GRR_NFA_LAST_CHAR_FLAG;
+        break;
+
+        case GRR_DIGIT_CODE:
+        for (int k=0; k<10; k++) {
+        	c2='0'+k-GRR_NFA_ASCII_ADJUSTMENT;
+        	transition->symbols[c2/8] |= ( 1 << (c2%8) );
+        }
         break;
 
         case '\t':
