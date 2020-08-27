@@ -20,8 +20,8 @@ typedef struct nfaTransition {
 } nfaTransition;
 
 typedef struct nfaNode {
-	nfaTransition *transitions;
-	unsigned int numTransitions;
+	nfaTransition transitions[2];
+	unsigned char twoTransitions;
 } nfaNode;
 
 struct grrNfaStruct {
