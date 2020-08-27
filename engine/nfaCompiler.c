@@ -48,11 +48,6 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 	nfaStack stack={0};
 	grrNfa current;
 
-	current=NEW_NFA();
-	if ( !current ) {
-		return GRR_RET_OUT_OF_MEMORY;
-	}
-
 	for (size_t idx=0; idx<len; idx++) {
 		if ( !isprint(string[idx]) ) {
 			fprintf(stderr,"Unprintable character at index %zu: 0x%02x\n", idx, (unsigned char)string[idx]);
@@ -60,16 +55,24 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 		}
 	}
 
+	current=NEW_NFA();
+	if ( !current ) {
+		return GRR_RET_OUT_OF_MEMORY;
+	}
+
 	for (size_t idx=0; idx<len; idx++) {
+		size_t idx2;
 		ssize_t stackIdx;
 		char character;
+		int negation;
 		grrNfa temp;
+		nfaTransition transition;
 
 		character=string[idx];
 		switch ( character ) {
 			case '(':
 			case '|':
-			ret=pushNfaToStack(&stack,current,idx,character)	;
+			ret=pushNfaToStack(&stack,current,idx,character);
 			if ( ret != GRR_RET_OK ) {
 				goto error;
 			}
@@ -105,7 +108,14 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 					stack.frames[k].nfa=NULL;
 				}
 
-				ret=checkForQuantifier(temp,string[idx+1]);
+				ret=addDisjunctionToNfa(temp,current);
+				if ( ret != GRR_RET_OK ) {
+					grrFreeNfa(temp);
+					goto error;
+				}
+				current=temp;
+
+				ret=checkForQuantifier(current,string[idx+1]);
 				if ( ret == GRR_RET_OK ) {
 					idx++;
 				}
@@ -114,31 +124,109 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 					goto error;
 				}
 
-				ret=addDisjunctionToNfa(temp,current);
-				if ( ret != GRR_RET_OK ) {
-					grrFreeNfa(temp);
-					goto error;
-				}
-				current=temp;
 				ret=concatenateNfas(stack.frames[stackIdx].nfa,current);
 				if ( ret != GRR_RET_OK ) {
 					goto error;
 				}
 			}
+
 			current=stack.frames[stackIdx].nfa;
 			stack.length=stackIdx;
-
-			ret=checkForQuantifier(current,string[idx+1]);
-			if ( ret == GRR_RET_OK ) {
-				idx++;
-			}
-			else if ( ret != GRR_RET_NOT_FOUND ) {
-				goto error;
-			}
 			break;
 
 			case '[':
-			// 
+			if ( idx == len-1 ) {
+				fprintf(stderr,"Unclosed character class:\n");
+				printIdxForString(string,len,idx);
+				ret=GRR_RET_BAD_DATA;
+				goto error;
+			}
+			memset(&transition,0,sizeof(transition));
+			negation=( string[idx+1] == '^' );
+			idx2=idx++;
+			if ( idx < len && string[idx] == '-' ) {
+				setSymbol(&transition,'-');
+				idx++;
+			}
+			while ( idx < len-1 && string[idx] != ']' ) {
+				character=string[idx];
+
+				if ( string[idx+1] == '-' ) {
+					char possibleRangeEnd, character2;
+
+					if ( idx == len-2 ) {
+						fprintf(stderr,"Unclosed range in character class:\n");
+						printIdxForString(string,len,idx);
+						ret=GRR_RET_BAD_DATA;
+						goto error;
+					}
+
+					if ( character >= 'A' && character < 'Z' ) {
+						possibleRangeEnd='Z';
+					}
+					else if ( character >= 'a' && character < 'z' ) {
+						possibleRangeEnd='z';
+					}
+					else if ( character >= '0' && character < '9' ) {
+						possibleRangeEnd='9';
+					}
+					else {
+						fprintf(stderr,"Invalid character class range:\n");
+						printIdxForString(string,len,idx);
+						ret=GRR_RET_BAD_DATA;
+						goto error;
+					}
+
+					character2=string[idx+2];
+					if ( ! ( character2 > character && character2 <= possibleRangeEnd ) ) {
+						fprintf(stderr,"Invalid character class range:\n");
+						printIdxForString(string,len,idx);
+						ret=GRR_RET_BAD_DATA;
+						goto error;
+					}
+
+					for (char c=character; c<=character2; c++) {
+						setSymbol(&transition,c);
+					}
+
+					idx+=3;
+					continue;
+				}
+
+				if ( character == '\\' ) {
+					character=string[idx+1];
+
+					switch ( character ) {
+						case '[':
+						case ']':
+						break;
+
+						case 't':
+						character='\t';
+						break;
+
+						default:
+						fprintf(stderr,"Invalid character escape:\n");
+						printIdxForString(string,len,idx);
+						ret=GRR_RET_BAD_DATA;
+						goto error;
+					}
+
+					idx+=2;
+				}
+				else {
+					idx++;
+				}
+
+				setSymbol(&transition,character);
+			}
+
+			if ( string[idx] != ']' ) {
+				fprintf(stderr,"Unclosed character class:\n");
+				printIdxForString(string,len,idx);
+				ret=GRR_RET_BAD_DATA;
+				goto error;
+			}
 			break;
 
 			case '*':
@@ -209,7 +297,7 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 		}
 	}
 
-	for (size_t k=0; k<stack.length; k++) {
+	for (ssize_t k=stack.length-1; k>=0; k--) {
 		if ( !stack.frames[k].nfa ) {
 			continue;
 		}
@@ -220,10 +308,11 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 			ret=GRR_RET_BAD_DATA;
 			goto error;
 		}
-		ret=addDisjunctionToNfa(current,stack.frames[k].nfa);
+		ret=addDisjunctionToNfa(stack.frames[k].nfa,current);
 		if ( ret != GRR_RET_OK ) {
 			goto error;
 		}
+		current=stack.frames[k].nfa;
 		stack.frames[k].nfa=NULL;
 	}
 
@@ -432,13 +521,13 @@ static int addDisjunctionToNfa(grrNfa nfa1, grrNfa nfa2) {
     memcpy(success+1+len1,nfa2->nodes,sizeof(*(nfa2->nodes))*len2);
     nfa1->length=newLen;
 
-    success->twoTransitions=1;
-
+    memset(success,0,sizeof(*success));
+    success[0].twoTransitions=1;
     for (int k=0; k<2; k++) {
-    	setSymbol(&success->transitions[k],GRR_EMPTY_TRANSITION_CODE);
+    	setSymbol(&success[0].transitions[k],GRR_EMPTY_TRANSITION_CODE);
     }
-    success->transitions[0].motion=1;
-    success->transitions[1].motion=len1+1;
+    success[0].transitions[0].motion=1;
+    success[0].transitions[1].motion=len1+1;
 
     for (unsigned int k=0; k<len1; k++) {
         for (unsigned int j=0; j<=success[k+1].twoTransitions; j++) {
@@ -506,7 +595,7 @@ static int checkForQuantifier(grrNfa nfa, char quantifier) {
 	}
 
 	if ( plus ) {
-		int length;
+		unsigned int length;
 		nfaNode *success;
 
 		length=nfa->length;
@@ -518,7 +607,7 @@ static int checkForQuantifier(grrNfa nfa, char quantifier) {
 
 		memset(success+length,0,sizeof(*success));
 		setSymbol(&success->transitions[0],GRR_EMPTY_TRANSITION_CODE);
-		success->transitions[0].motion=-1*length;
+		success->transitions[0].motion=-1*(int)length;
 
 		nfa->length++;
 	}

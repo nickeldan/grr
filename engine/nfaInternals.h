@@ -9,8 +9,8 @@
 #define GRR_NFA_TAB_FLAG 0x08
 
 #define GRR_NFA_ASCII_OFFSET 4
-#define GRR_NFA_NUM_SYMBOLS (GRR_NFA_ASCII_OFFSET+0x7e+1-0x20) // ASCII printables
-#define GRR_NFA_ASCII_ADJUSTMENT (0x20-GRR_NFA_ASCII_OFFSET)
+#define GRR_NFA_NUM_SYMBOLS (GRR_NFA_ASCII_OFFSET + 0x7e + 1 - 0x20) // ASCII printables
+#define GRR_NFA_ASCII_ADJUSTMENT (0x20 - GRR_NFA_ASCII_OFFSET)
 
 typedef struct nfaTransition {
 	int motion;
