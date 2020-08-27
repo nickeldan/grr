@@ -407,23 +407,24 @@ static int addDisjunctionToNfa(grrNfa nfa1, grrNfa nfa2) {
     if ( !success ) {
         return GRR_RET_OUT_OF_MEMORY;
     }
+    nfa1->nodes=success;
 
-	memmove(nfa1->nodes+1,nfa1->nodes,sizeof(*(nfa1->nodes))*len1);
-    memcpy(nfa1->nodes+1+len1,nfa2->nodes,sizeof(*(nfa2->nodes))*len2);
+	memmove(success+1,success,sizeof(*success)*len1);
+    memcpy(success+1+len1,nfa2->nodes,sizeof(*(nfa2->nodes))*len2);
     nfa1->length=newLen;
 
-    nfa1->nodes[0].twoTransitions=1;
+    success->twoTransitions=1;
 
     for (int k=0; k<2; k++) {
-    	setSymbol(&nfa1->nodes[0].transitions[k],GRR_EMPTY_TRANSITION_CODE);
+    	setSymbol(&success->transitions[k],GRR_EMPTY_TRANSITION_CODE);
     }
-    nfa1->nodes[0].transitions[0].motion=1;
-    nfa1->nodes[0].transitions[1].motion=len1+1;
+    success->transitions[0].motion=1;
+    success->transitions[1].motion=len1+1;
 
     for (unsigned int k=0; k<len1; k++) {
-        for (unsigned int j=0; j<=nfa1->nodes[k+1].twoTransitions; j++) {
-            if ( (int)k + nfa1->nodes[k+1].transitions[j].motion == len1 ) {
-                nfa1->nodes[k+1].transitions[j].motion += len2;
+        for (unsigned int j=0; j<=success[k+1].twoTransitions; j++) {
+            if ( (int)k + success[k+1].transitions[j].motion == len1 ) {
+                success[k+1].transitions[j].motion += len2;
             }
         }
     }
