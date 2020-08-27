@@ -12,6 +12,8 @@
 #define GRR_WHITESPACE_CODE 0x01
 #define GRR_WILDCARD_CODE 0x02
 #define GRR_EMPTY_TRANSITION_CODE 0x03
+#define GRR_FIRST_CHAR_CODE 0x04
+#define GRR_LAST_CHAR_CODE 0x05
 
 #define GRR_NFA_PADDING 5
 
@@ -64,14 +66,6 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 
 		character=string[idx];
 		switch ( character ) {
-			case '^':
-			// 
-			break;
-
-			case '$':
-			// 
-			break;
-
 			case '(':
 			case '|':
 			ret=pushNfaToStack(&stack,current,idx,character)	;
@@ -165,6 +159,20 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 
 			case '.':
 			character=GRR_WILDCARD_CODE;
+			goto add_character;
+
+			case '^':
+			if ( current->length > 0 ) {
+				fprintf(stderr,"'^' impossible to match:\n");
+				printIdxForString(string,len,idx);
+				ret=GRR_RET_BAD_DATA;
+				goto error;
+			}
+			character=GRR_FIRST_CHAR_CODE;
+			goto add_character;
+
+			case '$':
+			character=GRR_LAST_CHAR_CODE;
 			goto add_character;
 
 			default:
@@ -346,7 +354,7 @@ static void setSymbol(nfaTransition *transition, char c) {
 
     switch ( c ) {
         case GRR_WHITESPACE_CODE:
-        transition->symbols[0] |= 0x02; // tab
+        transition->symbols[0] |= GRR_NFA_TAB_FLAG;
         c2=' '-GRR_NFA_ASCII_ADJUSTMENT;
         goto set_character;
 
@@ -356,11 +364,19 @@ static void setSymbol(nfaTransition *transition, char c) {
         break;
 
         case GRR_EMPTY_TRANSITION_CODE:
-        transition->symbols[0] |= 0x01;
+        transition->symbols[0] |= GRR_NFA_EMPTY_CHARACTER_FLAG;
+        break;
+
+        case GRR_FIRST_CHAR_CODE:
+        transition->symbols[0] |= GRR_NFA_FIRST_CHAR_FLAG;
+        break;
+
+        case GRR_LAST_CHAR_CODE:
+        transition->symbols[0] |= GRR_NFA_LAST_CHAR_FLAG;
         break;
 
         case '\t':
-        transition->symbols[0] |= 0x02;
+        transition->symbols[0] |= GRR_NFA_TAB_FLAG;
         break;
 
         default:
