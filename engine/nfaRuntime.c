@@ -16,6 +16,7 @@ int grrNfaMatch(const grrNfa nfa, const char *string, size_t len) {
     int ret;
 	size_t stateSetLen;
     unsigned char *curStateSet, *nextStateSet;
+    const nfaNode *nodes;
 
     for (size_t k=0; k<len; k++) {
         if ( !isprint(string[k]) ) {
@@ -37,12 +38,12 @@ int grrNfaMatch(const grrNfa nfa, const char *string, size_t len) {
         return GRR_RET_OUT_OF_MEMORY;
     }
 
+    nodes=nfa->nodes;
+
     for (size_t idx=0; idx<len; idx++) {
         int stillAlive=0;
         char character;
-        const nfaNode *nodes;
 
-        nodes=nfa->nodes;
         character=string[idx]-GRR_NFA_ASCII_ADJUSTMENT;
         memset(nextStateSet,0,stateSetLen);
 
@@ -63,6 +64,8 @@ int grrNfaMatch(const grrNfa nfa, const char *string, size_t len) {
 
         memcpy(curStateSet,nextStateSet,stateSetLen);
     }
+
+    ret=( IS_FLAG_SET(curStateSet,nfa->length+1) )? GRR_RET_OK : GRR_RET_NOT_FOUND;
 
     done:
 
