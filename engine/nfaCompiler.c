@@ -115,14 +115,16 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 				}
 				current=temp;
 
-				ret=checkForQuantifier(current,string[idx+1]);
-				if ( ret == GRR_RET_OK ) {
-					idx++;
-				}
-				else if ( ret != GRR_RET_NOT_FOUND ) {
-					grrFreeNfa(temp);
-					goto error;
-				}
+                if ( idx+1 < len ) {
+                    ret=checkForQuantifier(current,string[idx+1]);
+                    if ( ret == GRR_RET_OK ) {
+                        idx++;
+                    }
+                    else if ( ret != GRR_RET_NOT_FOUND ) {
+                        grrFreeNfa(temp);
+                        goto error;
+                    }
+                }
 
 				ret=concatenateNfas(stack.frames[stackIdx].nfa,current);
 				if ( ret != GRR_RET_OK ) {
@@ -156,7 +158,7 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 
 					if ( idx == len-2 ) {
 						fprintf(stderr,"Unclosed range in character class:\n");
-						printIdxForString(string,len,idx);
+						printIdxForString(string,len,idx2);
 						ret=GRR_RET_BAD_DATA;
 						goto error;
 					}
@@ -223,10 +225,47 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 
 			if ( string[idx] != ']' ) {
 				fprintf(stderr,"Unclosed character class:\n");
-				printIdxForString(string,len,idx);
+				printIdxForString(string,len,idx2);
 				ret=GRR_RET_BAD_DATA;
 				goto error;
 			}
+
+            if ( negation ) {
+                for (size_t k=0; k<sizeof(transition.symbols); k++) {
+                    transition.symbols[k] ^= 0xff;
+                }
+                transition.symbols[0] &= ~GRR_NFA_EMPTY_TRANSITION_FLAG;
+            }
+
+            temp=NEW_NFA();
+            if ( !temp ) {
+                ret=GRR_RET_OUT_OF_MEMORY;
+                goto error;
+            }
+            temp->nodes=calloc(1,sizeof(*(temp->nodes)));
+            if ( !temp->nodes ) {
+                grrFreeNfa(temp);
+                ret=GRR_RET_OUT_OF_MEMORY;
+                goto error;
+            }
+            memcpy(&temp->nodes[0].transitions[0],&transition,sizeof(transition));
+
+            if ( idx+1 < len ) {
+                ret=checkForQuantifier(temp,string[idx+1]);
+                if ( ret == GRR_RET_OK ) {
+                    idx++;
+                }
+                else if ( ret != GRR_RET_NOT_FOUND ) {
+                    grrFreeNfa(temp);
+                    goto error;
+                }
+            }
+
+            ret=concatenateNfas(current,temp);
+            if ( ret != GRR_RET_OK ) {
+                grrFreeNfa(temp);
+                goto error;
+            }
 			break;
 
 			case '*':
@@ -279,14 +318,17 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 				ret=GRR_RET_OUT_OF_MEMORY;
 				goto error;
 			}
-			ret=checkForQuantifier(temp,string[idx+1]);
-			if ( ret == GRR_RET_OK ) {
-				idx++;
-			}
-			else if ( ret != GRR_RET_NOT_FOUND ) {
-				grrFreeNfa(temp);
-				goto error;
-			}
+
+            if ( idx+1 < len ) {
+                ret=checkForQuantifier(temp,string[idx+1]);
+                if ( ret == GRR_RET_OK ) {
+                    idx++;
+                }
+                else if ( ret != GRR_RET_NOT_FOUND ) {
+                    grrFreeNfa(temp);
+                    goto error;
+                }
+            }
 
 			ret=concatenateNfas(current,temp);
 			if ( ret != GRR_RET_OK ) {
@@ -315,6 +357,7 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 		current=stack.frames[k].nfa;
 		stack.frames[k].nfa=NULL;
 	}
+    free(stack.frames);
 
 	*nfa=current;
 	return GRR_RET_OK;
@@ -455,7 +498,7 @@ static void setSymbol(nfaTransition *transition, char c) {
         break;
 
         case GRR_EMPTY_TRANSITION_CODE:
-        transition->symbols[0] |= GRR_NFA_EMPTY_CHARACTER_FLAG;
+        transition->symbols[0] |= GRR_NFA_EMPTY_TRANSITION_FLAG;
         break;
 
         case GRR_FIRST_CHAR_CODE:
@@ -496,10 +539,10 @@ static int concatenateNfas(grrNfa nfa1, grrNfa nfa2) {
     }
 
     nfa1->nodes=success;
-    nfa1->length=newLen;
 
     memcpy(nfa1->nodes+nfa1->length,nfa2->nodes,sizeof(*(nfa2->nodes))*nfa2->length);
     grrFreeNfa(nfa2);
+    nfa1->length=newLen;
 
     return GRR_RET_OK;
 }
