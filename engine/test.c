@@ -28,7 +28,7 @@ int main() {
         printf("%s did not match the regex.\n", matchString);
     }
     else {
-        return ret;
+        goto done;
     }
 
     ret=grrSearch(nfa,searchString,sizeof(searchString)-1,&start,&end);
@@ -38,9 +38,9 @@ int main() {
     else if ( ret == GRR_RET_NOT_FOUND ) {
         printf("No substring of %s matched the regex.\n", searchString);
     }
-    else {
-        return ret;
-    }
 
-    return 0;
+    done:
+
+    grrFreeNfa(nfa);
+    return ret;
 }

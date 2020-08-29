@@ -28,7 +28,7 @@ static void freeStateSet(stateSet *set);
 
 int grrMatch(const grrNfa nfa, const char *string, size_t len) {
     int ret;
-	size_t stateSetLen;
+    size_t stateSetLen;
     unsigned char flags=GRR_NFA_FIRST_CHAR_FLAG;
     unsigned char *curStateSet, *nextStateSet;
     const nfaNode *nodes;
@@ -211,9 +211,8 @@ static int determineNextState(size_t depth, const grrNfa nfa, size_t state, char
     const nfaNode *nodes;
     int stillAlive=0;
 
-    if ( state == nfa->length ) { // We've reached the accepting state.
-        SET_FLAG(nextStateSet,state);
-        return 1;
+    if ( state == nfa->length ) { // We've reached the accepting state but we have another character to process.
+        return 0;
     }
 
     if ( depth == nfa->length ) {

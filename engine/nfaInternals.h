@@ -28,7 +28,7 @@ struct grrNfaStruct {
 	unsigned int length;
 };
 
-#define SET_FLAG(state,flag) (state)[(flag)/8] != ( 1 << ((flag)%8) )
+#define SET_FLAG(state,flag) (state)[(flag)/8] |= ( 1 << ((flag)%8) )
 #define IS_FLAG_SET(state,flag) ( (state)[(flag)/8]&( 1 << ((flag)%8) ) )
 
 #endif // __GRR_NFA_INTERNALS_H__
