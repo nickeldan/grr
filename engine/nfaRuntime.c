@@ -26,7 +26,7 @@ static int determineNextState(size_t depth, const grrNfa nfa, size_t state, char
 static int determineNextStateRecord(size_t depth, const grrNfa nfa, stateRecord *record, char character, unsigned char flags, stateSet *set);
 static void freeStateSet(stateSet *set);
 
-int grrNfaMatch(const grrNfa nfa, const char *string, size_t len) {
+int grrMatch(const grrNfa nfa, const char *string, size_t len) {
     int ret;
 	size_t stateSetLen;
     unsigned char flags=GRR_NFA_FIRST_CHAR_FLAG;
@@ -96,8 +96,8 @@ int grrNfaMatch(const grrNfa nfa, const char *string, size_t len) {
     return ret;
 }
 
-int grrNfaSearch(const grrNfa nfa, const char *string, size_t len, size_t *start, size_t *end) {
-	int ret;
+int grrSearch(const grrNfa nfa, const char *string, size_t len, size_t *start, size_t *end) {
+    int ret;
     stateSet currentSet={0}, nextSet={0};
     stateRecord *firstState;
 
@@ -172,15 +172,15 @@ int grrNfaSearch(const grrNfa nfa, const char *string, size_t len, size_t *start
 
         firstState->startIdx=idx;
         ret=determineNextStateRecord(0,nfa,firstState,character,flags,&nextSet);
-        if ( ret == GRR_RET_OK ) {
+        if ( ret != GRR_RET_OK ) {
+            goto done;
+        }
+        if ( firstState->ownershipFlag ) {
             firstState=NEW_RECORD();
             if ( !firstState ) {
                 ret=GRR_RET_OUT_OF_MEMORY;
                 goto done;
             }
-        }
-        else if ( ret != GRR_RET_NOT_FOUND ) {
-            goto done;
         }
     }
 
