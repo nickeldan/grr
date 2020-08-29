@@ -470,6 +470,9 @@ static grrNfa createCharacterNfa(char c) {
 
 	nodes->transitions[0].motion=1;
 	setSymbol(&nodes->transitions[0],c);
+    if ( c == GRR_NFA_FIRST_CHAR_FLAG || c == GRR_NFA_LAST_CHAR_FLAG ) {
+        setSymbol(&nodes->transitions[0],GRR_NFA_EMPTY_TRANSITION_FLAG);
+    }
 
 	nfa=NEW_NFA();
 	if ( !nfa ) {
@@ -649,8 +652,12 @@ static int checkForQuantifier(grrNfa nfa, char quantifier) {
 		nfa->nodes=success;
 
 		memset(success+length,0,sizeof(*success));
-		setSymbol(&success->transitions[0],GRR_EMPTY_TRANSITION_CODE);
-		success->transitions[0].motion=-1*(int)length;
+        success[length].twoTransitions=1;
+        for (int k=0; k<2; k++) {
+            setSymbol(&success[length].transitions[k],GRR_EMPTY_TRANSITION_CODE);
+        }
+		success[length].transitions[0].motion=-1*(int)length;
+        success[length].transitions[1].motion=1;
 
 		nfa->length++;
 	}
