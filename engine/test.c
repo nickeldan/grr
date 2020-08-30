@@ -1,46 +1,36 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "nfa.h"
 #include "grrUtil.h"
 
-int main() {
+int main(int argc, char **argv) {
     int ret;
-    size_t start, end;
     grrNfa nfa;
-    const char pattern[]="ab+c";
-    const char matchString[]="abbbbbbbbc";
-    const char searchString[]="lkjasldjjkljsadlkfjabbbbbbek1999abbckkkk";
 
-    printf("Compiling the regex: %s\n", pattern);
+    if ( argc < 3 ) {
+        fprintf(stderr,"Missing arguments\n");
+        fprintf(stderr,"Usage: %s <regex> <string>\n", argv[0]);
+        return -1;
+    }
 
-    ret=grrCompilePattern(pattern,sizeof(pattern)-1,&nfa);
+    ret=grrCompilePattern(argv[1],strlen(argv[1]),&nfa);
     if ( ret != GRR_RET_OK ) {
+        printf("Failed to compile pattern\n");
         return ret;
     }
 
-    printf("Regex compiled\n");
-
-    ret=grrMatch(nfa,matchString,sizeof(matchString)-1);
+    ret=grrMatch(nfa,argv[2],strlen(argv[2]));
+    grrFreeNfa(nfa);
     if ( ret == GRR_RET_OK ) {
-        printf("%s matched the regex.\n", matchString);
+        printf("The string matched the regex\n");
     }
     else if ( ret == GRR_RET_NOT_FOUND ) {
-        printf("%s did not match the regex.\n", matchString);
+        printf("The string did not match the regex\n");
     }
     else {
-        goto done;
+        printf("Error while running grrMatch\n");
     }
 
-    ret=grrSearch(nfa,searchString,sizeof(searchString)-1,&start,&end);
-    if ( ret == GRR_RET_OK ) {
-        printf("A substring of %s matched the regex (from indices %zu to %zu).\n", searchString, start, end);
-    }
-    else if ( ret == GRR_RET_NOT_FOUND ) {
-        printf("No substring of %s matched the regex.\n", searchString);
-    }
-
-    done:
-
-    grrFreeNfa(nfa);
     return ret;
 }
