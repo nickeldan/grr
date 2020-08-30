@@ -6,7 +6,6 @@
 
 #include "nfaCompiler.h"
 #include "nfaInternals.h"
-#include "grrUtil.h"
 
 #define GRR_INVALID_CHARACTER 0x00
 #define GRR_WHITESPACE_CODE 0x01

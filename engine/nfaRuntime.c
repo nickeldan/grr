@@ -5,7 +5,6 @@
 
 #include "nfaRuntime.h"
 #include "nfaInternals.h"
-#include "grrUtil.h"
 
 typedef struct stateRecord {
     struct stateRecord *next;

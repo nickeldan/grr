@@ -2,7 +2,6 @@
 #include <string.h>
 
 #include "nfa.h"
-#include "grrUtil.h"
 
 int main(int argc, char **argv) {
     int ret;

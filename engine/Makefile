@@ -1,6 +1,13 @@
-CC := gcc
-COMPILER_FLAGS := -std=gnu99 -O3 -g -fpic -Wall
-INCLUDES := -I../util
+CC ?= gcc
+debug ?= no
+
+COMPILER_FLAGS := -std=gnu99 -fpic -Wall
+ifeq ($(debug),yes)
+	COMPILER_FLAGS += -O0 -g
+else
+	COMPILER_FLAGS += -O3
+endif
+
 OBJECT_FILES := nfa.o nfaCompiler.o nfaRuntime.o
 
 LIB_NAME := libgrrengine
@@ -21,14 +28,14 @@ test: test.o $(LIB_NAME).a
 nfa.o: nfa.c nfaDef.h nfaInternals.h
 	$(CC) $(COMPILER_FLAGS) -c $<
 
-nfaCompiler.o: nfaCompiler.c nfaDef.h nfaInternals.h ../util/grrUtil.h
-	$(CC) $(COMPILER_FLAGS) $(INCLUDES) -c $<
+nfaCompiler.o: nfaCompiler.c nfaDef.h nfaInternals.h
+	$(CC) $(COMPILER_FLAGS) -c $<
 
-nfaRuntime.o: nfaRuntime.c nfaRuntime.h nfaDef.h nfaInternals.h ../util/grrUtil.h
-	$(CC) $(COMPILER_FLAGS) $(INCLUDES) -c $<
+nfaRuntime.o: nfaRuntime.c nfaRuntime.h nfaDef.h nfaInternals.h
+	$(CC) $(COMPILER_FLAGS) -c $<
 
-test.o: test.c nfa.h nfaDef.h nfaCompiler.h nfaCompiler.c ../util/grrUtil.h
-	$(CC) $(COMPILER_FLAGS) $(INCLUDES) -c $<
+test.o: test.c nfa.h nfaDef.h nfaCompiler.h nfaCompiler.c
+	$(CC) $(COMPILER_FLAGS) -c $<
 
 clean:
 	rm -rf $(LIB_NAME).so $(LIB_NAME).a *.o test
