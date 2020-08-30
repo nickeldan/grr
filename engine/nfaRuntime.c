@@ -31,7 +31,6 @@ int grrMatch(const grrNfa nfa, const char *string, size_t len) {
     size_t stateSetLen;
     unsigned char flags=GRR_NFA_FIRST_CHAR_FLAG;
     unsigned char *curStateSet, *nextStateSet;
-    const nfaNode *nodes;
 
     for (size_t k=0; k<len; k++) {
         if ( !isprint(string[k]) ) {
@@ -52,8 +51,6 @@ int grrMatch(const grrNfa nfa, const char *string, size_t len) {
         free(curStateSet);
         return GRR_RET_OUT_OF_MEMORY;
     }
-
-    nodes=nfa->nodes;
 
     for (size_t idx=0; idx<len; idx++) {
         int stillAlive=0;
@@ -86,7 +83,7 @@ int grrMatch(const grrNfa nfa, const char *string, size_t len) {
         flags &= ~GRR_NFA_FIRST_CHAR_FLAG;
     }
 
-    ret=( IS_FLAG_SET(curStateSet,nfa->length+1) )? GRR_RET_OK : GRR_RET_NOT_FOUND;
+    ret=( IS_FLAG_SET(curStateSet,nfa->length) )? GRR_RET_OK : GRR_RET_NOT_FOUND;
 
     done:
 
@@ -170,7 +167,7 @@ int grrSearch(const grrNfa nfa, const char *string, size_t len, size_t *start, s
             }
         }
 
-        firstState->startIdx=idx;
+        firstState->startIdx=firstState->endIdx=idx;
         ret=determineNextStateRecord(0,nfa,firstState,character,flags,&nextSet);
         if ( ret != GRR_RET_OK ) {
             goto done;
@@ -189,7 +186,7 @@ int grrSearch(const grrNfa nfa, const char *string, size_t len, size_t *start, s
         for (stateRecord *traverse=nextSet.head; traverse; traverse=traverse->next) {
             if ( traverse->state == nfa->length && traverse->endIdx - traverse->startIdx == nextSet.champion ) {
                 *start=traverse->startIdx;
-                *end=traverse->endIdx;
+                *end=traverse->endIdx-1;
                 break;
             }
         }
@@ -216,7 +213,7 @@ static int determineNextState(size_t depth, const grrNfa nfa, size_t state, char
     }
 
     if ( depth == nfa->length ) {
-        if ( character == GRR_NFA_TAB_REPRESENTATION ) {
+        if ( character == GRR_NFA_TAB ) {
             fprintf(stderr,"Something went very wrong with the construction of the NFA!  An empty-transition loop has been found at state %zu while processing a '\\t'.\n", state);
         }
         else {
@@ -235,12 +232,12 @@ static int determineNextState(size_t depth, const grrNfa nfa, size_t state, char
             SET_FLAG(nextStateSet,newState);
             stillAlive=1;
         }
-        else if ( nodes[state].transitions[k].symbols[0]&GRR_NFA_EMPTY_TRANSITION_FLAG ) {
-            if ( IS_FLAG_SET(nodes[state].transitions[k].symbols,GRR_NFA_FIRST_CHAR_FLAG) && !(flags&GRR_NFA_FIRST_CHAR_FLAG) ) {
+        else if ( IS_FLAG_SET(nodes[state].transitions[k].symbols,GRR_NFA_EMPTY_TRANSITION) ) {
+            if ( IS_FLAG_SET(nodes[state].transitions[k].symbols,GRR_NFA_FIRST_CHAR) && !(flags&GRR_NFA_FIRST_CHAR_FLAG) ) {
                 continue;
             }
 
-            if ( IS_FLAG_SET(nodes[state].transitions[k].symbols,GRR_NFA_LAST_CHAR_FLAG) && !(flags&GRR_NFA_LAST_CHAR_FLAG) ) {
+            if ( IS_FLAG_SET(nodes[state].transitions[k].symbols,GRR_NFA_LAST_CHAR) && !(flags&GRR_NFA_LAST_CHAR_FLAG) ) {
                 continue;
             }
 
@@ -273,7 +270,7 @@ static int determineNextStateRecord(size_t depth, const grrNfa nfa, stateRecord 
     }
 
     if ( depth == nfa->length ) {
-        if ( character == GRR_NFA_TAB_REPRESENTATION ) {
+        if ( character == GRR_NFA_TAB ) {
             fprintf(stderr,"Something went very wrong with the construction of the NFA!  An empty-transition loop has been found at state %zu while processing a '\\t'.\n", state);
         }
         else {
@@ -323,14 +320,14 @@ static int determineNextStateRecord(size_t depth, const grrNfa nfa, stateRecord 
             newRecord->next=set->head;
             set->head=newRecord;
         }
-        else if ( IS_FLAG_SET(nodes[state].transitions[k].symbols,GRR_NFA_EMPTY_TRANSITION_FLAG) ) {
+        else if ( IS_FLAG_SET(nodes[state].transitions[k].symbols,GRR_NFA_EMPTY_TRANSITION) ) {
             int ret;
 
-            if ( IS_FLAG_SET(nodes[state].transitions[k].symbols,GRR_NFA_FIRST_CHAR_FLAG) && !(flags&GRR_NFA_FIRST_CHAR_FLAG) ) {
+            if ( IS_FLAG_SET(nodes[state].transitions[k].symbols,GRR_NFA_FIRST_CHAR) && !(flags&GRR_NFA_FIRST_CHAR_FLAG) ) {
                 continue;
             }
 
-            if ( IS_FLAG_SET(nodes[state].transitions[k].symbols,GRR_NFA_LAST_CHAR_FLAG) && !(flags&GRR_NFA_LAST_CHAR_FLAG) ) {
+            if ( IS_FLAG_SET(nodes[state].transitions[k].symbols,GRR_NFA_LAST_CHAR) && !(flags&GRR_NFA_LAST_CHAR_FLAG) ) {
                 continue;
             }
 
