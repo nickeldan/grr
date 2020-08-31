@@ -2,7 +2,9 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
+#include <limits.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "nfaCompiler.h"
 #include "nfaInternals.h"
@@ -40,7 +42,8 @@ static grrNfa createCharacterNfa(char c);
 static void setSymbol(nfaTransition *transition, char c);
 static int concatenateNfas(grrNfa nfa1, grrNfa nfa2);
 static int addDisjunctionToNfa(grrNfa nfa1, grrNfa nfa2);
-static int checkForQuantifier(grrNfa nfa, char quantifier);
+static int checkForQuantifier(grrNfa nfa, const char *string, size_t len, size_t idx, size_t *newIdx);
+static int resolveBraces(grrNfa nfa, const char *string, size_t len, size_t idx, size_t *newIdx);
 
 int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 	int ret;
@@ -114,15 +117,10 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 				}
 				current=temp;
 
-                if ( idx+1 < len ) {
-                    ret=checkForQuantifier(current,string[idx+1]);
-                    if ( ret == GRR_RET_OK ) {
-                        idx++;
-                    }
-                    else if ( ret != GRR_RET_NOT_FOUND ) {
-                        grrFreeNfa(temp);
-                        goto error;
-                    }
+                ret=checkForQuantifier(current,string,len,idx,&idx);
+                if ( ret != GRR_RET_OK ) {
+                    grrFreeNfa(temp);
+                    goto error;
                 }
 
 				ret=concatenateNfas(stack.frames[stackIdx].nfa,current);
@@ -249,15 +247,10 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
             }
             memcpy(&temp->nodes[0].transitions[0],&transition,sizeof(transition));
 
-            if ( idx+1 < len ) {
-                ret=checkForQuantifier(temp,string[idx+1]);
-                if ( ret == GRR_RET_OK ) {
-                    idx++;
-                }
-                else if ( ret != GRR_RET_NOT_FOUND ) {
-                    grrFreeNfa(temp);
-                    goto error;
-                }
+            ret=checkForQuantifier(temp,string,len,idx,&idx);
+            if ( ret != GRR_RET_OK ) {
+                grrFreeNfa(temp);
+                goto error;
             }
 
             ret=concatenateNfas(current,temp);
@@ -266,6 +259,12 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
                 goto error;
             }
 			break;
+
+            case ']':
+            fprintf(stderr,"Unmatched bracket:\n:");
+            printIdxForString(string,len,idx);
+            ret=GRR_RET_BAD_DATA;
+            goto error;
 
 			case '*':
 			case '+':
@@ -276,8 +275,13 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 			goto error;
 
 			case '{':
+            fprintf(stderr,"Invalid use of curly brace:\n");
+            printIdxForString(string,len,idx);
+            ret=GRR_RET_BAD_DATA;
+            goto error;
+
 			case '}':
-			fprintf(stderr,"Curly braces must be escaped:\n");
+			fprintf(stderr,"Unmatched curly brace:\n");
 			printIdxForString(string,len,idx);
 			ret=GRR_RET_BAD_DATA;
 			goto error;
@@ -318,15 +322,10 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 				goto error;
 			}
 
-            if ( idx+1 < len ) {
-                ret=checkForQuantifier(temp,string[idx+1]);
-                if ( ret == GRR_RET_OK ) {
-                    idx++;
-                }
-                else if ( ret != GRR_RET_NOT_FOUND ) {
-                    grrFreeNfa(temp);
-                    goto error;
-                }
+            ret=checkForQuantifier(temp,string,len,idx,&idx);
+            if ( ret != GRR_RET_OK ) {
+                grrFreeNfa(temp);
+                goto error;
             }
 
 			ret=concatenateNfas(current,temp);
@@ -500,32 +499,32 @@ static void setSymbol(nfaTransition *transition, char c) {
         break;
 
         case GRR_EMPTY_TRANSITION_CODE:
-        transition->symbols[0] |= GRR_NFA_EMPTY_TRANSITION_FLAG;
-        break;
+        c2=GRR_NFA_EMPTY_TRANSITION;
+        goto set_character;
 
         case GRR_FIRST_CHAR_CODE:
-        transition->symbols[0] |= GRR_NFA_FIRST_CHAR_FLAG;
-        break;
+        c2=GRR_NFA_FIRST_CHAR;
+        goto set_character;
 
         case GRR_LAST_CHAR_CODE:
-        transition->symbols[0] |= GRR_NFA_LAST_CHAR_FLAG;
-        break;
+        c2=GRR_NFA_LAST_CHAR;
+        goto set_character;
 
         case GRR_DIGIT_CODE:
         for (int k=0; k<10; k++) {
         	c2='0'+k-GRR_NFA_ASCII_ADJUSTMENT;
-        	transition->symbols[c2/8] |= ( 1 << (c2%8) );
+            SET_FLAG(transition->symbols,c2);
         }
         break;
 
         case '\t':
-        transition->symbols[0] |= GRR_NFA_TAB_FLAG;
-        break;
+        c2=GRR_NFA_TAB;
+        goto set_character;
 
         default:
         c2=c-GRR_NFA_ASCII_ADJUSTMENT;
         set_character:
-        transition->symbols[c2/8] |= ( 1 << (c2%8) );
+        SET_FLAG(transition->symbols,c2);
         break;
     }
 }
@@ -586,10 +585,14 @@ static int addDisjunctionToNfa(grrNfa nfa1, grrNfa nfa2) {
     return GRR_RET_OK;
 }
 
-static int checkForQuantifier(grrNfa nfa, char quantifier) {
+static int checkForQuantifier(grrNfa nfa, const char *string, size_t len, size_t idx, size_t *newIdx) {
 	unsigned int question=0, plus=0;
 
-	switch ( quantifier ) {
+    if ( idx+1 == len ) {
+        return GRR_RET_OK;
+    }
+
+	switch ( string[idx+1] ) {
 		case '?':
 		question=1;
 		break;
@@ -602,9 +605,15 @@ static int checkForQuantifier(grrNfa nfa, char quantifier) {
 		question=plus=1;
 		break;
 
+        case '{':
+        return resolveBraces(nfa,string,len,idx,newIdx);
+
 		default:
-		return GRR_RET_NOT_FOUND;
+        *newIdx=idx;
+		return GRR_RET_OK;
 	}
+
+    *newIdx=idx+1;
 
 	if ( question ) {
 		if ( nfa->nodes[0].twoTransitions ) {
@@ -662,4 +671,61 @@ static int checkForQuantifier(grrNfa nfa, char quantifier) {
 	}
 
 	return GRR_RET_OK;
+}
+
+static int resolveBraces(grrNfa nfa, const char *string, size_t len, size_t idx, size_t *newIdx) {
+    size_t end, numNodes;
+    long value;
+    char *buffer;
+    nfaNode *success;
+
+    for (end=idx+1; end<len && string[end] != '}'; end++) {
+        if ( !isdigit(string[end]) ) {
+            fprintf(stderr,"Expected digit inside braces:\n");
+            printIdxForString(string,len,end);
+            return GRR_RET_BAD_DATA;
+        }
+    }
+
+    if ( end == len ) {
+        fprintf(stderr,"Unclosed brace:\n");
+        printIdxForString(string,len,idx);
+        return GRR_RET_BAD_DATA;
+    }
+    if ( end == idx+1 ) {
+        fprintf(stderr,"Empty braces:\n");
+        printIdxForString(string,len,idx);
+        return GRR_RET_BAD_DATA;
+    }
+
+    *newIdx=end;
+
+    buffer=alloca(end-idx);
+    memcpy(buffer,string+idx+1,end-1-idx);
+    buffer[end-idx]='\0';
+
+    value=strtol(buffer,NULL,10);
+    if ( value == LONG_MAX && errno == ERANGE ) {
+        fprintf(stderr,"Invalid quantifier inside braces:\n");
+        printIdxForString(string,len,idx+1);
+        return GRR_RET_BAD_DATA;
+    }
+    if ( value == 1 ) {
+        return GRR_RET_OK;
+    }
+
+    numNodes=nfa->length;
+    success=realloc(nfa->nodes,sizeof(*success)*numNodes*value);
+    if ( !success ) {
+        return GRR_RET_OUT_OF_MEMORY;
+    }
+    nfa->nodes=success;
+
+    for (long k=1; k<value; k++) {
+        memcpy(nfa->nodes+k*numNodes,nfa->nodes,sizeof(*success)*numNodes);
+    }
+
+    nfa->length*=value;
+
+    return GRR_RET_OK;
 }
