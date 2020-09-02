@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 
-#include "nfa.h"
+#include "nfaDef.h"
 
 int grrCompilePattern(const char *string, size_t len, grrNfa *nfa);
 

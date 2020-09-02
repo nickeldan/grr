@@ -7,6 +7,7 @@ void grrFreeNfa(grrNfa nfa) {
 		return;
 	}
 
+    free(nfa->description);
 	free(nfa->nodes);
 	free(nfa);
 }

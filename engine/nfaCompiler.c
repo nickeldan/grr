@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "nfaCompiler.h"
+#include "nfa.h"
 #include "nfaInternals.h"
 
 #define GRR_INVALID_CHARACTER 0x00
@@ -141,8 +141,15 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 				goto error;
 			}
 			memset(&transition,0,sizeof(transition));
-			negation=( string[idx+1] == '^' );
-			idx2=idx++;
+            idx2=idx;
+            if ( string[idx+1] == '^' ) {
+                negation=1;
+                idx += 2;
+            }
+            else {
+                negation=0;
+                idx++;
+            }
 			if ( idx < len && string[idx] == '-' ) {
 				setSymbol(&transition,'-');
 				idx++;
@@ -155,7 +162,7 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 
 					if ( idx == len-2 ) {
 						fprintf(stderr,"Unclosed range in character class:\n");
-						printIdxForString(string,len,idx2);
+						printIdxForString(string,len,idx);
 						ret=GRR_RET_BAD_DATA;
 						goto error;
 					}
@@ -220,7 +227,7 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 				setSymbol(&transition,character);
 			}
 
-			if ( string[idx] != ']' ) {
+			if ( idx >= len || string[idx] != ']' ) {
 				fprintf(stderr,"Unclosed character class:\n");
 				printIdxForString(string,len,idx2);
 				ret=GRR_RET_BAD_DATA;
@@ -356,6 +363,14 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
 		stack.frames[k].nfa=NULL;
 	}
     free(stack.frames);
+
+    current->description=malloc(len+1);
+    if ( !current->description ) {
+        ret=GRR_RET_OUT_OF_MEMORY;
+        goto error;
+    }
+    memcpy(current->description,string,len);
+    current->description[len]='\0';
 
 	*nfa=current;
 	return GRR_RET_OK;
@@ -606,7 +621,7 @@ static int checkForQuantifier(grrNfa nfa, const char *string, size_t len, size_t
 		break;
 
         case '{':
-        return resolveBraces(nfa,string,len,idx,newIdx);
+        return resolveBraces(nfa,string,len,idx+1,newIdx);
 
 		default:
         *newIdx=idx;

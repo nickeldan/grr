@@ -30,6 +30,7 @@ typedef struct nfaNode {
 } nfaNode;
 
 struct grrNfaStruct {
+    char *description;
 	nfaNode *nodes;
 	unsigned int length;
 };
