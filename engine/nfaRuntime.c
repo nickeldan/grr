@@ -22,6 +22,7 @@ typedef struct stateSet {
 #define NEW_RECORD() calloc(1,sizeof(stateRecord))
 
 static int determineNextState(size_t depth, const grrNfa nfa, size_t state, char character, unsigned char flags, unsigned char *nextStateSet);
+static int canTransitionToAcceptingState(const grrNfa nfa, size_t state);
 static int determineNextStateRecord(size_t depth, const grrNfa nfa, stateRecord *record, char character, unsigned char flags, stateSet *set);
 static void freeStateSet(stateSet *set);
 
@@ -82,7 +83,13 @@ int grrMatch(const grrNfa nfa, const char *string, size_t len) {
         flags &= ~GRR_NFA_FIRST_CHAR_FLAG;
     }
 
-    ret=( IS_FLAG_SET(curStateSet,nfa->length) )? GRR_RET_OK : GRR_RET_NOT_FOUND;
+    for (size_t k=0; k<nfa->length; k++) {
+        if ( IS_FLAG_SET(curStateSet,k) && canTransitionToAcceptingState(nfa,k) == GRR_RET_OK ) {
+            ret=GRR_RET_OK;
+            goto done;
+        }
+    }
+    ret=GRR_RET_NOT_FOUND;
 
     done:
 
@@ -247,6 +254,29 @@ static int determineNextState(size_t depth, const grrNfa nfa, size_t state, char
     }
 
     return stillAlive;
+}
+
+static int canTransitionToAcceptingState(const grrNfa nfa, size_t state) {
+    const nfaNode *nodes;
+
+    nodes=nfa->nodes;
+
+    for (unsigned int k=0; k<=nodes[state].twoTransitions; k++) {
+        if ( IS_FLAG_SET(nodes[state].transitions[k].symbols,GRR_NFA_EMPTY_TRANSITION) ) {
+            size_t newState;
+
+            newState=state+nodes[state].transitions[k].motion;
+            if ( newState == nfa->length ) {
+                return GRR_RET_OK;
+            }
+
+            if ( canTransitionToAcceptingState(nfa,newState) == GRR_RET_OK ) {
+                return GRR_RET_OK;
+            }
+        }
+    }
+
+    return GRR_RET_NOT_FOUND;
 }
 
 static int determineNextStateRecord(size_t depth, const grrNfa nfa, stateRecord *record, char character, unsigned char flags, stateSet *set) {

@@ -241,6 +241,8 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
                 transition.symbols[0] &= ~GRR_NFA_EMPTY_TRANSITION_FLAG;
             }
 
+            transition.motion=1;
+
             temp=NEW_NFA();
             if ( !temp ) {
                 ret=GRR_RET_OUT_OF_MEMORY;
@@ -253,6 +255,7 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
                 goto error;
             }
             memcpy(&temp->nodes[0].transitions[0],&transition,sizeof(transition));
+            temp->length=1;
 
             ret=checkForQuantifier(temp,string,len,idx,&idx);
             if ( ret != GRR_RET_OK ) {
