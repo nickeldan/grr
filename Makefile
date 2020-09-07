@@ -19,7 +19,8 @@ main.o: main.c engine/nfa.h engine/nfaDef.h engine/nfaCompiler.h engine/nfaRunti
 	$(CC) $(COMPILER_FLAGS) $(INCLUDES) -c $<
 
 engine/libgrrengine.a: FORCE
-	cd $(dir $@) && make $(notdir $@)
+	cd $(dir $@) && make CC=$(CC) debug=$(debug) $(notdir $@)
 
 clean:
 	rm -r grr *.o
+	cd engine && make clean

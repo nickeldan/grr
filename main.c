@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 #include "engine/nfa.h"
 
@@ -23,6 +24,7 @@ typedef struct grrOptions {
 } grrOptions;
 
 void usage(const char *executable);
+int isExecutable(const char *path);
 int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, const grrOptions *options);
 int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const grrOptions *options);
 void executeEditor(const char *editor, const char *path, long lineNo);
@@ -42,12 +44,18 @@ int main(int argc, char **argv) {
         return GRR_RET_BAD_DATA;
     }
 
+    ret=grrCompilePattern(argv[1],strlen(argv[1]),&pattern);
+    if ( ret != GRR_RET_OK ) {
+        fprintf(stderr,"Could not compile pattern.\n");
+        return ret;
+    }
+
     options.lineNo=-1;
 
-    while ( (optval=getopt(argc,argv,":d:f:e:l:nvh")) != -1 ) {
+    while ( (optval=getopt(argc-1,argv+1,":d:f:e:l:nvh")) != -1 ) {
         switch ( optval ) {
             case 'd':
-            temp=argv[optind-1];
+            temp=argv[optind];
             if ( !temp[0] ) {
                 fprintf(stderr,"Starting directory cannot be empty.\n");
                 ret=GRR_RET_BAD_DATA;
@@ -137,23 +145,18 @@ int main(int argc, char **argv) {
         if ( !options.editor ) {
             options.editor=getenv("DEFAULT_EDITOR");
             if ( !options.editor ) {
-                options.editor=( access("vim",X_OK) == 0 )? "vim" : "vi";
+                options.editor=( isExecutable("vim") == GRR_RET_OK )? "vim" : "vi";
             }
         }
-        if ( access(options.editor,X_OK) != 0 ) {
-            fprintf(stderr,"Cannot execute %s: %s", options.editor, strerror(errno));
-            ret=GRR_RET_FILE_ACCESS;
+
+        ret=isExecutable(options.editor);
+        if ( ret != GRR_RET_OK ) {
+            fprintf(stderr,"Cannot execute %s.\n", options.editor);
             goto done;
         }
     }
     else {
         options.editor=NULL;
-    }
-
-    ret=grrCompilePattern(argv[optind],strlen(argv[optind]),&pattern);
-    if ( ret != GRR_RET_OK ) {
-        fprintf(stderr,"Could not compile pattern.\n");
-        goto done;
     }
 
     dir=opendir(path);
@@ -179,7 +182,7 @@ int main(int argc, char **argv) {
 }
 
 void usage(const char *executable) {
-    printf("Usage: %s [options] pattern\n", executable);
+    printf("Usage: %s pattern [options]\n", executable);
     printf("Options:\n");
     printf("\t-f <file-pattern>   -- Only examine files whose names (excluding the directory) match this regex\n");
     printf("\t-e <editor>         -- When used in conjunction with -l, specifies the editor for opening files.\n");
@@ -189,6 +192,25 @@ void usage(const char *executable) {
     printf("\t-n                  -- Display only the file names and not the individual lines within them.\n");
     printf("\t-v                  -- Show verbose output.\n");
     printf("\t-h                  -- Display this message.\n");
+}
+
+int isExecutable(const char *path) {
+    char line[GRR_PATH_MAX];
+    FILE *f;
+
+    if ( snprintf(line,sizeof(line),"which %s", path) >= sizeof(line) ) {
+        return GRR_RET_OVERFLOW;
+    }
+
+    f=popen(line,"r");
+    if ( !f ) {
+        return GRR_RET_OUT_OF_MEMORY;
+    }
+
+    fgets(line,sizeof(line),f);
+    pclose(f);
+
+    return line[0]? GRR_RET_OK : GRR_RET_NOT_FOUND;
 }
 
 int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, const grrOptions *options) {
@@ -370,5 +392,34 @@ int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const
 }
 
 void executeEditor(const char *editor, const char *path, long lineNo) {
-    
+    pid_t child;
+    int status;
+
+    child=fork();
+    switch ( child ) {
+        case -1:
+        perror("fork");
+        return;
+
+        case 0:
+        if ( strncmp(editor,"vi",3) == 0 || strncmp(editor,"vim",4) == 0 ) {
+            char argument[50];
+
+            if ( snprintf(argument,sizeof(argument),"+%li", lineNo) >= sizeof(lineNo) ) {
+                fprintf(stderr,"lineNo is too big to fit into buffer: %li\n", lineNo);
+                exit(1);
+            }
+            execl(editor,argument,path,NULL);
+        }
+        else {
+            execl(editor,path);
+        }
+
+        perror("execl");
+        exit(1);
+
+        default:
+        while ( waitpid(child,&status,0) <= 0 );
+        break;
+    }
 }
