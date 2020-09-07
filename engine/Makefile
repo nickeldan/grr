@@ -22,10 +22,7 @@ $(LIB_NAME).so: $(OBJECT_FILES)
 $(LIB_NAME).a: $(OBJECT_FILES)
 	ar rcs $@ $^
 
-matchTest: matchTest.c nfa.h nfaDef.h nfaCompiler.h nfaRuntime.h $(LIB_NAME).a
-	$(CC) $^ -o $@
-
-searchTest: searchTest.c nfa.h nfaDef.h nfaCompiler.h nfaRuntime.h $(LIB_NAME).a
+%Test: %Test.o $(LIB_NAME).a
 	$(CC) $^ -o $@
 
 nfa.o: nfa.c nfaDef.h nfaInternals.h
@@ -35,6 +32,9 @@ nfaCompiler.o: nfaCompiler.c nfaDef.h nfaInternals.h
 	$(CC) $(COMPILER_FLAGS) -c $<
 
 nfaRuntime.o: nfaRuntime.c nfaRuntime.h nfaDef.h nfaInternals.h
+	$(CC) $(COMPILER_FLAGS) -c $<
+
+%Test.o: %Test.c nfa.h nfaDef.h nfaCompiler.h nfaRuntime.h
 	$(CC) $(COMPILER_FLAGS) -c $<
 
 clean:
