@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "nfa.h"
+#include "engine/nfa.h"
 
 #define GRR_PATH_MAX 4096
 

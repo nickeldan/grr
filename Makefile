@@ -8,19 +8,17 @@ else
     COMPILER_FLAGS += -O3
 endif
 
-INCLUDES := -I../engine
-
-.PHONY: all clean ../engine/libgrrengine.a
+.PHONY: all clean FORCE
 
 all: grr
 
-grr: main.o ../engine/libgrrengine.a
+grr: main.o engine/libgrrengine.a
 	$(CC) $^ -o $@
 
-main.o: main.c ../engine/nfa.h ../engine/nfaDef.h ../engine/nfaCompiler.h ../engine/nfaRuntime.h
+main.o: main.c engine/nfa.h engine/nfaDef.h engine/nfaCompiler.h engine/nfaRuntime.h
 	$(CC) $(COMPILER_FLAGS) $(INCLUDES) -c $<
 
-../engine/libgrrengine.a:
+engine/libgrrengine.a: FORCE
 	cd $(dir $@) && make $(notdir $@)
 
 clean:
