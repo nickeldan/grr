@@ -22,7 +22,7 @@ typedef struct stateSet {
 #define NEW_RECORD() calloc(1,sizeof(stateRecord))
 
 static int determineNextState(size_t depth, const grrNfa nfa, size_t state, char character, unsigned char flags, unsigned char *nextStateSet);
-static int canTransitionToAcceptingState(const grrNfa nfa, size_t state);
+static int canTransitionToAcceptingState(const grrNfa nfa, size_t state, size_t score, size_t *champion);
 static int determineNextStateRecord(size_t depth, const grrNfa nfa, stateRecord *record, char character, unsigned char flags, stateSet *set);
 static void freeStateSet(stateSet *set);
 
@@ -84,7 +84,7 @@ int grrMatch(const grrNfa nfa, const char *string, size_t len) {
     }
 
     for (size_t k=0; k<nfa->length; k++) {
-        if ( IS_FLAG_SET(curStateSet,k) && canTransitionToAcceptingState(nfa,k) == GRR_RET_OK ) {
+        if ( IS_FLAG_SET(curStateSet,k) && canTransitionToAcceptingState(nfa,k,0,NULL) == GRR_RET_OK ) {
             ret=GRR_RET_OK;
             goto done;
         }
@@ -165,11 +165,12 @@ int grrSearch(const grrNfa nfa, const char *string, size_t len, size_t *start, s
             record->ownershipFlag=0;
 
             ret=determineNextStateRecord(0,nfa,record,character,flags,&nextSet);
-            if ( ret == GRR_RET_NOT_FOUND ) {
+            if ( ret != GRR_RET_OK ) {
                 free(record);
-            }
-            else if ( ret != GRR_RET_OK ) {
                 goto done;
+            }
+            if ( !record->ownershipFlag ) {
+                free(record);
             }
         }
 
@@ -187,15 +188,23 @@ int grrSearch(const grrNfa nfa, const char *string, size_t len, size_t *start, s
         }
     }
 
+    for (stateRecord *traverse=nextSet.head; traverse; traverse=traverse->next) {
+        if ( canTransitionToAcceptingState(nfa,traverse->state,traverse->endIdx-traverse->startIdx,&nextSet.champion) == GRR_RET_OK ) {
+            traverse->state=nfa->length;
+        }
+    }
+
     if ( nextSet.champion > 0 ) {
-        ret=GRR_RET_OK;
         for (stateRecord *traverse=nextSet.head; traverse; traverse=traverse->next) {
             if ( traverse->state == nfa->length && traverse->endIdx - traverse->startIdx == nextSet.champion ) {
+                ret=GRR_RET_OK;
                 *start=traverse->startIdx;
                 *end=traverse->endIdx-1;
-                break;
+                goto done;
             }
         }
+        fprintf(stderr,"Something went really wrong with the search!  The state record containing the match was somehow deleted.\n");
+        abort();
     }
     else {
         ret=GRR_RET_NOT_FOUND;
@@ -256,8 +265,16 @@ static int determineNextState(size_t depth, const grrNfa nfa, size_t state, char
     return stillAlive;
 }
 
-static int canTransitionToAcceptingState(const grrNfa nfa, size_t state) {
+static int canTransitionToAcceptingState(const grrNfa nfa, size_t state, size_t score, size_t *champion) {
     const nfaNode *nodes;
+
+    if ( state == nfa->length ) {
+        if ( champion && score > *champion ) {
+            *champion=score;
+        }
+
+        return GRR_RET_OK;
+    }
 
     nodes=nfa->nodes;
 
@@ -266,11 +283,7 @@ static int canTransitionToAcceptingState(const grrNfa nfa, size_t state) {
             size_t newState;
 
             newState=state+nodes[state].transitions[k].motion;
-            if ( newState == nfa->length ) {
-                return GRR_RET_OK;
-            }
-
-            if ( canTransitionToAcceptingState(nfa,newState) == GRR_RET_OK ) {
+            if ( canTransitionToAcceptingState(nfa,newState,score,champion) == GRR_RET_OK ) {
                 return GRR_RET_OK;
             }
         }
@@ -289,7 +302,7 @@ static int determineNextStateRecord(size_t depth, const grrNfa nfa, stateRecord 
         size_t newScore;
 
         newScore=record->endIdx-record->startIdx;
-        if ( newScore > set->champion ) {
+        if ( newScore >= set->champion ) {
             record->ownershipFlag=1;
             record->next=set->head;
             set->head=record;
@@ -341,9 +354,9 @@ static int determineNextStateRecord(size_t depth, const grrNfa nfa, stateRecord 
             }
             else {
                 newRecord=record;
-                newRecord->ownershipFlag=1;
             }
 
+            newRecord->ownershipFlag=1;
             newRecord->state=newState;
             newRecord->endIdx++;
             newRecord->next=set->head;
