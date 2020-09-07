@@ -99,10 +99,14 @@ int grrMatch(const grrNfa nfa, const char *string, size_t len) {
     return ret;
 }
 
-int grrSearch(const grrNfa nfa, const char *string, size_t len, size_t *start, size_t *end) {
+int grrSearch(const grrNfa nfa, const char *string, size_t len, size_t *start, size_t *end, size_t *cursor, bool tolerateNonprintables) {
     int ret;
     stateSet currentSet={0}, nextSet={0};
     stateRecord *firstState;
+
+    if ( cursor ) {
+        *cursor=len;
+    }
 
     firstState=NEW_RECORD();
     if ( !firstState ) {
@@ -113,11 +117,27 @@ int grrSearch(const grrNfa nfa, const char *string, size_t len, size_t *start, s
         char character;
         unsigned char flags=0;
 
+        if ( string[idx] == '\r' || string[idx] == '\n' ) {
+            if ( cursor ) {
+                *cursor=idx;
+            }
+
+            break;
+        }
+
         memcpy(&currentSet,&nextSet,sizeof(nextSet));
         nextSet.head=NULL;
 
         while ( !isprint(string[idx]) && idx < len ) {
             stateRecord *prev=NULL;
+
+            if ( !tolerateNonprintables ) {
+                if ( cursor ) {
+                    *cursor=idx;
+                }
+                ret=GRR_RET_BAD_DATA;
+                goto done;
+            }
 
             for (stateRecord *traverse=currentSet.head; traverse;) {
                 if ( traverse->state < nfa->length ) {
@@ -199,7 +219,7 @@ int grrSearch(const grrNfa nfa, const char *string, size_t len, size_t *start, s
             if ( traverse->state == nfa->length && traverse->endIdx - traverse->startIdx == nextSet.champion ) {
                 ret=GRR_RET_OK;
                 *start=traverse->startIdx;
-                *end=traverse->endIdx-1;
+                *end=traverse->endIdx;
                 goto done;
             }
         }

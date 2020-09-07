@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
         return ret;
     }
 
-    ret=grrSearch(nfa,argv[2],strlen(argv[2]),&start,&end);
+    ret=grrSearch(nfa,argv[2],strlen(argv[2]),&start,&end,NULL,false);
     grrFreeNfa(nfa);
     if ( ret == GRR_RET_OK ) {
         printf("A string matched the regex from indices %zu to %zu.\n", start, end);

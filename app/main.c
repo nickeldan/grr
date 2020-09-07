@@ -19,12 +19,13 @@ typedef struct grrOptions {
     const char *editor;
     long lineNo;
     bool namesOnly;
-    bool followSymbolicLinks;
     bool verbose;
 } grrOptions;
 
 void usage(const char *executable);
-void searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, const grrOptions *options);
+int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, const grrOptions *options);
+int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const grrOptions *options);
+void executeEditor(const char *editor, const char *path, long lineNo);
 
 int main(int argc, char **argv) {
     int ret=GRR_RET_OK, optval;
@@ -43,7 +44,7 @@ int main(int argc, char **argv) {
 
     options.lineNo=-1;
 
-    while ( (optval=getopt(argc,argv,":d:f:e:l:nsvh")) != -1 ) {
+    while ( (optval=getopt(argc,argv,":d:f:e:l:nvh")) != -1 ) {
         switch ( optval ) {
             case 'd':
             temp=argv[optind-1];
@@ -108,10 +109,6 @@ int main(int argc, char **argv) {
             options.namesOnly=true;
             break;
 
-            case 's':
-            options.followSymbolicLinks=true;
-            break;
-
             case 'v':
             options.verbose=true;
             break;
@@ -136,16 +133,21 @@ int main(int argc, char **argv) {
         }
     }
 
-    if ( !options.editor ) {
-        options.editor=getenv("DEFAULT_EDITOR");
+    if ( options.lineNo >= 0 ) {
         if ( !options.editor ) {
-            option.editor=( access("vim",X_OK) == 0 )? "vim" : "vi";
+            options.editor=getenv("DEFAULT_EDITOR");
+            if ( !options.editor ) {
+                options.editor=( access("vim",X_OK) == 0 )? "vim" : "vi";
+            }
+        }
+        if ( access(options.editor,X_OK) != 0 ) {
+            fprintf(stderr,"Cannot execute %s: %s", options.editor, strerror(errno));
+            ret=GRR_RET_FILE_ACCESS;
+            goto done;
         }
     }
-    if ( access(options.editor,X_OK) != 0 ) {
-        fprintf(stderr,"Cannot execute %s: %s", options.editor, strerror(errno));
-        ret=GRR_RET_FILE_ACCESS;
-        goto done;
+    else {
+        options.editor=NULL;
     }
 
     ret=grrCompilePattern(argv[optind],strlen(argv[optind]),&pattern);
@@ -185,14 +187,13 @@ void usage(const char *executable) {
     printf("\t                       unset.\n");
     printf("\t-l <result-number>  -- Opens up the file specified in the l^th result.\n");
     printf("\t-n                  -- Display only the file names and not the individual lines within them.\n");
-    printf("\t-s                  -- Follow symbolic links.\n");
     printf("\t-v                  -- Show verbose output.\n");
     printf("\t-h                  -- Display this message.\n");
 }
 
-void searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, const grrOptions *options) {
-    int ret;
-    size_t offset;
+int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, const grrOptions *options) {
+    int ret=GRR_RET_OK;
+    size_t offset, newLen;
     struct dirent *entry;
 
     offset=strlen(path);
@@ -200,9 +201,14 @@ void searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, c
     while ( (entry=readdir(dir)) ) {
         struct stat fileStat;
         
+        if ( strncmp(entry->d_name,".",2) == 0 || strncmp(entry->d_name,"..",3) == 0 ) {
+            continue;
+        }
+
         path[offset]='\0';
 
-        if ( snprintf(path,GRR_PATH_MAX,"%s%s", path, entry->d_name) >= GRR_PATH_MAX ) {
+        newLen=snprintf(path,GRR_PATH_MAX,"%s%s", path, entry->d_name);
+        if ( newLen >= GRR_PATH_MAX ) {
             if ( options->verbose ) {
                 path[offset]='\0';
                 fprintf(stderr,"Skipping file in %s directory because it its name is too long.\n", path);
@@ -218,17 +224,28 @@ void searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, c
         }
 
         if ( S_ISREG(fileStat.st_mode) ) {
-
-        }
-        else if ( S_ISLNK(fileStat.st_mode) ) {
-            if ( !options.followSymbolicLinks ) {
+            if ( options->filePattern && grrMatch(options->filePattern,entry->d_name,strlen(entry->d_name)) != GRR_RET_OK ) {
                 continue;
             }
 
-
+            if ( searchFileForPattern(path,lineNo,nfa,options) == GRR_RET_BREAK_LOOP ) {
+                ret=GRR_RET_BREAK_LOOP;
+                goto done;
+            }
         }
-        else if ( S_ISDIR(filestat.st_mode) ) {
+        else if ( S_ISDIR(fileStat.st_mode) ) {
             DIR *subdir;
+
+            if ( newLen+1 == GRR_PATH_MAX ) {
+                if ( options->verbose ) {
+                    path[offset]='\0';
+                    fprintf(stderr,"Skipping subdirectory of %s because its name is too long.\n", path);
+                }
+                continue;
+            }
+
+            path[newLen++]='/';
+            path[newLen]='\0';
 
             subdir=opendir(path);
             if ( !subdir ) {
@@ -238,8 +255,12 @@ void searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, c
                 continue;
             }
 
-            searchDirectoryTree(subdir,path,lineNo,nfa,options);
+            ret=searchDirectoryTree(subdir,path,lineNo,nfa,options);
             closedir(subdir);
+            if ( ret == GRR_RET_BREAK_LOOP ) {
+                goto done;
+            }
+            ret=GRR_RET_OK;
         }
     }
 
@@ -248,4 +269,106 @@ void searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, c
     path[offset]='\0';
 
     return ret;
+}
+
+int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const grrOptions *options) {
+    int ret=GRR_RET_NOT_FOUND;
+    FILE *f;
+    char line[2048];
+
+    if ( options->verbose ) {
+        fprintf(stderr,"Opening %s.\n", path);
+    }
+
+    f=fopen(path,"rb");
+    if ( !f ) {
+        if ( options->verbose ) {
+            fprintf(stderr,"Could not read %s.\n", path);
+        }
+        return GRR_RET_FILE_ACCESS;
+    }
+
+    for (size_t fileLineNo=1; fgets(line,sizeof(line),f); fileLineNo++) {
+        size_t len, start, end, offset;
+        const char changeColorToRed[]={0x1b,'[','9','1','m'};
+        const char restoreColor[]={0x1b,'[','m'};
+
+        len=strlen(line);
+        if ( len > 0 && line[len-1] == '\n' ) {
+            len--;
+        }
+        for(; len>0 && line[len-1]=='\r'; len--);
+        if ( len == 0 ) {
+            continue;
+        }
+        ret=grrSearch(nfa,line,len,&start,&end,NULL,false);
+        if ( ret == GRR_RET_BAD_DATA ) {
+            if ( options->verbose ) {
+                fprintf(stderr,"Terminating processing of %s since it contains non-printable data.\n", path);
+            }
+            break;
+        }
+
+        if ( ret != GRR_RET_OK ) {
+            continue;
+        }
+
+        (*lineNo)++;
+
+        if ( options->editor ) {
+            if ( (*lineNo)-1 == options->lineNo ) {
+                executeEditor(options->editor,path,fileLineNo);
+                ret=GRR_RET_BREAK_LOOP;
+                break;
+            }
+            else if ( options->namesOnly ) {
+                break;
+            }
+            continue;
+        }
+
+        if ( options->namesOnly ) {
+            printf("(%li) %s\n", (*lineNo)-1, path);
+            break;
+        }
+
+        printf("(%li) %s (line %zu): ", (*lineNo)-1, path, fileLineNo);
+        if ( start > 15 ) {
+            printf("... ");
+            offset=start-15;
+        }
+        else {
+            offset=0;
+        }
+        fflush(stdout);
+
+        write(STDOUT_FILENO,line+offset,start-offset);
+        write(STDOUT_FILENO,changeColorToRed,sizeof(changeColorToRed));
+        if ( end-start > 50 ) {
+            write(STDOUT_FILENO,line+start,10);
+            write(STDOUT_FILENO," ... ",5);
+            write(STDOUT_FILENO,line+end-10,10);
+        }
+        else {
+            write(STDOUT_FILENO,line+start,end-start);
+        }
+        write(STDOUT_FILENO,restoreColor,sizeof(restoreColor));
+
+        if ( len-end > 15 ) {
+            write(STDOUT_FILENO,line+end,15);
+            write(STDOUT_FILENO," ...",4);
+        }
+        else {
+            write(STDOUT_FILENO,line+end,len-end);
+        }
+        printf("\n");
+    }
+
+    fclose(f);
+
+    return ret;
+}
+
+void executeEditor(const char *editor, const char *path, long lineNo) {
+    
 }
