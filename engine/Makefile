@@ -38,4 +38,4 @@ nfaRuntime.o: nfaRuntime.c nfaRuntime.h nfaDef.h nfaInternals.h
 	$(CC) $(COMPILER_FLAGS) -c $<
 
 clean:
-	rm -rf $(LIB_NAME).so $(LIB_NAME).a *.o matchTest searchTest
+	rm -f $(LIB_NAME).so $(LIB_NAME).a *.o matchTest searchTest

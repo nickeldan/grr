@@ -22,5 +22,5 @@ engine/libgrrengine.a: FORCE
 	cd $(dir $@) && make CC=$(CC) debug=$(debug) $(notdir $@)
 
 clean:
-	rm -r grr *.o
+	rm -f grr *.o
 	cd engine && make clean
