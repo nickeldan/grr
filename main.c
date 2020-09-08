@@ -409,10 +409,10 @@ void executeEditor(const char *editor, const char *path, long lineNo) {
                 fprintf(stderr,"lineNo is too big to fit into buffer: %li\n", lineNo);
                 exit(1);
             }
-            execlp(editor,argument,path,NULL);
+            execlp(editor,editor,argument,path,NULL);
         }
         else {
-            execlp(editor,path,NULL);
+            execlp(editor,editor,path,NULL);
         }
 
         perror(editor);
