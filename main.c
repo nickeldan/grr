@@ -229,14 +229,8 @@ int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, co
 
         path[offset]='\0';
 
-        newLen=snprintf(path,GRR_PATH_MAX,"%s%s", path, entry->d_name);
-        if ( newLen >= GRR_PATH_MAX ) {
-            if ( options->verbose ) {
-                path[offset]='\0';
-                fprintf(stderr,"Skipping file in %s directory because it its name is too long.\n", path);
-            }
-            continue;
-        }
+        strncat(path,entry->d_name,GRR_PATH_MAX);
+        newLen=strlen(path);
 
         if ( stat(path,&fileStat) != 0 ) {
             if ( options->verbose ) {
@@ -409,10 +403,10 @@ void executeEditor(const char *editor, const char *path, long lineNo) {
                 fprintf(stderr,"lineNo is too big to fit into buffer: %li\n", lineNo);
                 exit(1);
             }
-            execl(editor,argument,path,NULL);
+            execlp(editor,editor,argument,path,NULL);
         }
         else {
-            execl(editor,path);
+            execlp(editor,editor,path,NULL);
         }
 
         perror("execl");
