@@ -1,0 +1,52 @@
+Grr was written by Daniel Walker.
+Version 1.0.0 was released on September 8, 2020.
+
+Grr takes a regex and searches a directory tree for files containing strings
+which match that regex.  All lines which contain a match are printed to the
+screen in the following format:
+
+(5) some/directory/file.txt (line 97) : ... k19jIMATCHTHEREGEXkjljlk ...
+
+The "(5)" is a result number.  The first result printed will be numbered 0,
+then 1, and so on.  The purpose of this numbering system will be explained
+below under the "-l" option description.
+
+=== USAGE ===
+
+grr <regex> [options]
+
+Options:
+    -d <directory>       Specifies the starting directory.  Defaults to the
+                         present working directory.
+    -f <regex>           Specifies a regex for matching against the file names
+                         which are searched.  Only files which contain a
+                         substring which matches the regex will be searched.
+    -n                   Only print the names of the files which contain
+                         matches.
+    -l <result-number>   Instead of printing the results to the screen, the
+                         file denoted by the specified result number will be
+                         opened in an editor.  The editor used can be set via
+                         the DEFAULT_EDITOR environment variable or by using
+                         the -f option.  If neither are set, vi/m will be used.
+                         In the case that vi/m is used, the file will be opened
+                         to the line containing the match (or the first line if
+                         the -n option was used).
+    -e <editor>          Specifies the editor to be used with the -l option.
+                         Has no effect if -l is not used.
+    -i                   The directory tree search will ignore all hidden files
+                         and folders.
+    -c                   Ordinarily, the substring within the file which
+                         matched the regex is printed in red.  This option
+                         disables that coloration.
+    -v                   Prints verbose output to stderr.
+    -h                   Displays these options.
+
+=== REGEX GRAMMAR ===
+
+The only special character classes implemented are \d (digits) and \s (spaces
+and tabs).
+
+Grr's regex engine does not support group capturing and so all text within
+parentheses are considered a non-capturing group.
+
+Braces (i.e., { and }) can only be used to specify an exact quantity.
