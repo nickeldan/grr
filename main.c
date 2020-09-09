@@ -333,7 +333,7 @@ int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const
 
         if ( options->editor ) {
             if ( (*lineNo)-1 == options->lineNo ) {
-                executeEditor(options->editor,path,fileLineNo);
+                executeEditor(options->editor,path,options->namesOnly? 1 : fileLineNo);
                 ret=GRR_RET_BREAK_LOOP;
                 break;
             }
@@ -409,7 +409,7 @@ void executeEditor(const char *editor, const char *path, long lineNo) {
             execlp(editor,editor,path,NULL);
         }
 
-        perror("execl");
+        perror(editor);
         exit(1);
 
         default:

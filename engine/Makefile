@@ -3,9 +3,9 @@ debug ?= no
 
 COMPILER_FLAGS := -std=gnu99 -fpic -Wall
 ifeq ($(debug),yes)
-	COMPILER_FLAGS += -O0 -g
+	COMPILER_FLAGS += -O0 -g -DDEBUG
 else
-	COMPILER_FLAGS += -O3
+	COMPILER_FLAGS += -O3 -DNDEBUG
 endif
 
 OBJECT_FILES := nfa.o nfaCompiler.o nfaRuntime.o
@@ -38,4 +38,4 @@ nfaRuntime.o: nfaRuntime.c nfaRuntime.h nfaDef.h nfaInternals.h
 	$(CC) $(COMPILER_FLAGS) -c $<
 
 clean:
-	rm -rf $(LIB_NAME).so $(LIB_NAME).a *.o matchTest searchTest
+	rm -f $(LIB_NAME).so $(LIB_NAME).a *.o matchTest searchTest
