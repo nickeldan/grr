@@ -21,6 +21,8 @@ typedef struct grrOptions {
     long lineNo;
     bool namesOnly;
     bool verbose;
+    bool ignoreHidden;
+    bool colorless;
 } grrOptions;
 
 void usage(const char *executable);
@@ -52,7 +54,7 @@ int main(int argc, char **argv) {
 
     options.lineNo=-1;
 
-    while ( (optval=getopt(argc-1,argv+1,":d:f:e:l:nvh")) != -1 ) {
+    while ( (optval=getopt(argc-1,argv+1,":d:f:e:l:nicvh")) != -1 ) {
         switch ( optval ) {
             case 'd':
             temp=argv[optind];
@@ -115,6 +117,14 @@ int main(int argc, char **argv) {
 
             case 'n':
             options.namesOnly=true;
+            break;
+
+            case 'i':
+            options.ignoreHidden=true;
+            break;
+
+            case 'c':
+            options.colorless=true;
             break;
 
             case 'v':
@@ -223,8 +233,12 @@ int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, co
     while ( (entry=readdir(dir)) ) {
         struct stat fileStat;
         
-        if ( strncmp(entry->d_name,".",2) == 0 || strncmp(entry->d_name,"..",3) == 0 ) {
-            continue;
+        if ( entry->d_name[0] == '.' ) {
+            if ( options->ignoreHidden || entry->d_name[1] == '\0'
+                    || ( entry->d_name[1] == '.' && entry->d_name[2] == '\0' )
+            ) {
+                continue;
+            }
         }
 
         path[offset]='\0';
@@ -240,8 +254,12 @@ int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, co
         }
 
         if ( S_ISREG(fileStat.st_mode) ) {
-            if ( options->filePattern && grrMatch(options->filePattern,entry->d_name,strlen(entry->d_name)) != GRR_RET_OK ) {
-                continue;
+            if ( options->filePattern ) {
+                size_t dummy1, dummy2;
+
+                if ( grrSearch(nfa,entry->d_name,strlen(entry->d_name),&dummy1,&dummy2,NULL,0) != GRR_RET_OK ) {
+                    continue;
+                }
             }
 
             if ( searchFileForPattern(path,lineNo,nfa,options) == GRR_RET_BREAK_LOOP ) {
@@ -359,7 +377,9 @@ int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const
         fflush(stdout);
 
         write(STDOUT_FILENO,line+offset,start-offset);
-        write(STDOUT_FILENO,changeColorToRed,sizeof(changeColorToRed));
+        if ( !options->colorless ) {
+            write(STDOUT_FILENO,changeColorToRed,sizeof(changeColorToRed));
+        }
         if ( end-start > 50 ) {
             write(STDOUT_FILENO,line+start,10);
             write(STDOUT_FILENO," ... ",5);
@@ -368,7 +388,9 @@ int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const
         else {
             write(STDOUT_FILENO,line+start,end-start);
         }
-        write(STDOUT_FILENO,restoreColor,sizeof(restoreColor));
+        if ( !options->colorless ) {
+            write(STDOUT_FILENO,restoreColor,sizeof(restoreColor));
+        }
 
         if ( len-end > 15 ) {
             write(STDOUT_FILENO,line+end,15);
