@@ -3,9 +3,9 @@ debug ?= no
 
 COMPILER_FLAGS := -std=gnu99 -Wall
 ifeq ($(debug),yes)
-    COMPILER_FLAGS += -O0 -g
+    COMPILER_FLAGS += -O0 -g -DDEBUG
 else
-    COMPILER_FLAGS += -O3
+    COMPILER_FLAGS += -O3 -DNDEBUG
 endif
 
 .PHONY: all clean FORCE

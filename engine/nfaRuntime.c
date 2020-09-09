@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <assert.h>
 
 #include "nfaRuntime.h"
 #include "nfaInternals.h"
@@ -223,10 +224,7 @@ int grrSearch(const grrNfa nfa, const char *string, size_t len, size_t *start, s
                 goto done;
             }
         }
-#ifdef DEBUG
-        fprintf(stderr,"Something went really wrong with the search!  The state record containing the match was somehow deleted.\n");
-        abort();
-#endif
+        assert(0);
     }
     else {
         ret=GRR_RET_NOT_FOUND;
@@ -249,17 +247,7 @@ static int determineNextState(size_t depth, const grrNfa nfa, size_t state, char
         return 0;
     }
 
-#ifdef DEBUG
-    if ( depth == nfa->length ) {
-        if ( character == GRR_NFA_TAB ) {
-            fprintf(stderr,"Something went very wrong with the construction of the NFA!  An empty-transition loop has been found at state %zu while processing a '\\t'.\n", state);
-        }
-        else {
-            fprintf(stderr,"Something went very wrong with the construction of the NFA!  An empty-transition loop has been found at state %zu while processing a '%c'.\n", state, character+GRR_NFA_ASCII_ADJUSTMENT);
-        }
-        abort();
-    }
-#endif // DEBUG
+    assert(depth < nfa->length);
 
     nodes=nfa->nodes;
     for (unsigned int k=0; k<=nodes[state].twoTransitions; k++) {
@@ -322,6 +310,14 @@ static int determineNextStateRecord(size_t depth, const grrNfa nfa, stateRecord 
 
     state=record->state;
 
+    if ( depth == 0 && record->startIdx == record->endIdx ) {
+        for (stateRecord *traverse=set->head; traverse; traverse=traverse->next) {
+            if ( traverse->state == state ) {
+                return GRR_RET_OK;
+            }
+        }
+    }
+
     if ( state == nfa->length ) { // We've reached the accepting state.
         size_t newScore;
 
@@ -335,17 +331,7 @@ static int determineNextStateRecord(size_t depth, const grrNfa nfa, stateRecord 
         return GRR_RET_OK;
     }
 
-#ifdef DEBUG
-    if ( depth == nfa->length ) {
-        if ( character == GRR_NFA_TAB ) {
-            fprintf(stderr,"Something went very wrong with the construction of the NFA!  An empty-transition loop has been found at state %zu while processing a '\\t'.\n", state);
-        }
-        else {
-            fprintf(stderr,"Something went very wrong with the construction of the NFA!  An empty-transition loop has been found at state %zu while processing a '%c'.\n", state, character+GRR_NFA_ASCII_ADJUSTMENT);
-        }
-        abort();
-    }
-#endif // DEBUG
+    assert(depth < nfa->length);
 
     nodes=nfa->nodes;
     for (unsigned int k=0; k<=nodes[state].twoTransitions; k++) {
