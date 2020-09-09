@@ -262,7 +262,7 @@ int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, co
             if ( options->filePattern ) {
                 size_t dummy1, dummy2;
 
-                if ( grrSearch(nfa,entry->d_name,strlen(entry->d_name),&dummy1,&dummy2,NULL,0) != GRR_RET_OK ) {
+                if ( grrSearch(options->filePattern,entry->d_name,strlen(entry->d_name),&dummy1,&dummy2,NULL,false) != GRR_RET_OK ) {
                     continue;
                 }
             }
