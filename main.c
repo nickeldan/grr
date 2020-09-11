@@ -328,7 +328,7 @@ int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const
     }
 
     for (size_t fileLineNo=1; fgets(line,sizeof(line),f); fileLineNo++) {
-        size_t len, start, end, offset;
+        size_t len, start, end, offset, cursor;
         const char changeColorToRed[]={0x1b,'[','9','1','m'};
         const char restoreColor[]={0x1b,'[','m'};
 
@@ -340,10 +340,10 @@ int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const
         if ( len == 0 ) {
             continue;
         }
-        ret=grrSearch(nfa,line,len,&start,&end,NULL,false);
+        ret=grrSearch(nfa,line,len,&start,&end,&cursor,false);
         if ( ret == GRR_RET_BAD_DATA ) {
             if ( options->verbose ) {
-                fprintf(stderr,"Terminating processing of %s since it contains non-printable data.\n", path);
+                fprintf(stderr,"Terminating processing of %s since it contains non-printable data on line %zu, column %zu.\n", path, fileLineNo, cursor+1);
             }
             break;
         }

@@ -131,7 +131,7 @@ int grrSearch(const grrNfa nfa, const char *string, size_t len, size_t *start, s
             memset(nextRecords,0,(nfa->length+1)*sizeof(*nextRecords));
         }
 
-        if ( !isprint(character) ) {
+        if ( !isprint(character) && character != '\t' ) {
             if ( !tolerateNonprintables ) {
                 if ( cursor ) {
                     *cursor=idx;
@@ -147,7 +147,7 @@ int grrSearch(const grrNfa nfa, const char *string, size_t len, size_t *start, s
 
             do {
                 idx++;
-            } while ( idx < len && !isprint(string[idx]) );
+            } while ( idx < len && !isprint(string[idx]) && string[idx] != '\t' );
 
             if ( idx == len ) {
                 break;
