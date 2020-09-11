@@ -14,6 +14,7 @@ all: grr
 
 grr: main.o engine/libgrrengine.a
 	$(CC) $^ -o $@
+	if [ "$(debug)" != yes ]; then strip -s $@; fi
 
 main.o: main.c engine/nfa.h engine/nfaDef.h engine/nfaCompiler.h engine/nfaRuntime.h
 	$(CC) $(COMPILER_FLAGS) $(INCLUDES) -c $<
