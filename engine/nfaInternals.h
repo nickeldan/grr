@@ -29,21 +29,9 @@ typedef struct nfaNode {
 	unsigned char twoTransitions;
 } nfaNode;
 
-typedef struct nfaStateRecord {
-    unsigned int startIdx;
-    unsigned int endIdx;
-    unsigned int score;
-} nfaStateRecord;
-
-typedef union nfaWorkspace {
-    unsigned char *flags;
-    nfaStateRecord *records;
-} nfaWorkspace;
-
 struct grrNfaStruct {
+    char *description;
 	nfaNode *nodes;
-    nfaWorkspace currentState;
-    nfaWorkspace nextState;
 	unsigned int length;
 };
 

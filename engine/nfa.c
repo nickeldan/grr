@@ -7,8 +7,7 @@ void grrFreeNfa(grrNfa nfa) {
 		return;
 	}
 
-    free(nfa->currentState.flags);
-    free(nfa->nextState.flags);
+    free(nfa->description);
 	free(nfa->nodes);
 	free(nfa);
 }

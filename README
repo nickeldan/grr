@@ -27,7 +27,7 @@ Options:
                          file denoted by the specified result number will be
                          opened in an editor.  The editor used can be set via
                          the DEFAULT_EDITOR environment variable or by using
-                         the -e option.  If neither are set, vi/m will be used.
+                         the -f option.  If neither are set, vi/m will be used.
                          In the case that vi/m is used, the file will be opened
                          to the line containing the match (or the first line if
                          the -n option was used).
