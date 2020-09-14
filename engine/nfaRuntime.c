@@ -207,17 +207,20 @@ int grrSearch(const grrNfa nfa, const char *string, size_t len, size_t *start, s
                 goto done;
             }
         }
+
+        memcpy(&currentSet,&nextSet,sizeof(currentSet));
+        nextSet.head=NULL;
     }
 
-    for (stateRecord *traverse=nextSet.head; traverse; traverse=traverse->next) {
-        if ( canTransitionToAcceptingState(nfa,traverse->state,traverse->endIdx-traverse->startIdx,&nextSet.champion) == GRR_RET_OK ) {
+    for (stateRecord *traverse=currentSet.head; traverse; traverse=traverse->next) {
+        if ( canTransitionToAcceptingState(nfa,traverse->state,traverse->endIdx-traverse->startIdx,&currentSet.champion) == GRR_RET_OK ) {
             traverse->state=nfa->length;
         }
     }
 
-    if ( nextSet.champion > 0 ) {
-        for (stateRecord *traverse=nextSet.head; traverse; traverse=traverse->next) {
-            if ( traverse->state == nfa->length && traverse->endIdx - traverse->startIdx == nextSet.champion ) {
+    if ( currentSet.champion > 0 ) {
+        for (stateRecord *traverse=currentSet.head; traverse; traverse=traverse->next) {
+            if ( traverse->state == nfa->length && traverse->endIdx - traverse->startIdx == currentSet.champion ) {
                 ret=GRR_RET_OK;
                 *start=traverse->startIdx;
                 *end=traverse->endIdx;
