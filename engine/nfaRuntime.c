@@ -311,15 +311,6 @@ static int determineNextStateRecord(unsigned int depth, const grrNfa nfa, stateR
     const nfaNode *nodes;
 
     state=record->state;
-
-    if ( depth == 0 && record->startIdx == record->endIdx ) {
-        for (stateRecord *traverse=set->head; traverse; traverse=traverse->next) {
-            if ( traverse->state == state ) {
-                return GRR_RET_OK;
-            }
-        }
-    }
-
     if ( state == nfa->length ) { // We've reached the accepting state.
         size_t newScore;
 

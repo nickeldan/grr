@@ -4,7 +4,7 @@ import collections
 
 if __name__ == '__main__':
     d=collections.defaultdict(list)
-    with open('stats','r') as f:
+    with open('.stats','r') as f:
         for line in f:
             if line.startswith('user'):
                 user=float(line.split('m')[1].split('s')[0])

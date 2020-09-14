@@ -1,0 +1,3 @@
+since 1.0.0:
+	- removed a condition check in determineNextStateRecord that was imposing
+	  a 5% slowdown

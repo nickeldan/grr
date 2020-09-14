@@ -9,8 +9,8 @@ num_tests=$1
 
 cd $(dirname ${BASH_SOURCE[0]})
 for i in $(seq 1 $num_tests); do
-    time ../grr "for \([^(]+\)" -d ../..
-done > /dev/null 2> stats
+    time ../grr "[a-z][a-zA-Z0-9_]+" -d ../.. -i
+done > /dev/null 2> .stats
 
 ./stats.py
-rm stats
+rm .stats
