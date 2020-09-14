@@ -39,7 +39,6 @@ Options:
                          matched the regex is printed in red.  This option
                          disables that coloration.
     -v                   Prints verbose output to stderr.
-    -h                   Displays these options.
 
 === REGEX GRAMMAR ===
 

@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
 
     options.lineNo=-1;
 
-    while ( (optval=getopt(argc-1,argv+1,":d:f:e:l:nicvh")) != -1 ) {
+    while ( (optval=getopt(argc-1,argv+1,":d:f:e:l:nicv")) != -1 ) {
         switch ( optval ) {
             case 'd':
             temp=argv[optind];
@@ -136,10 +136,6 @@ int main(int argc, char **argv) {
             options.verbose=true;
             break;
 
-            case 'h':
-            usage(argv[0]);
-            goto done;
-
             case '?':
             fprintf(stderr,"Invalid option: %c\n", optopt);
             usage(argv[0]);
@@ -205,8 +201,8 @@ void usage(const char *executable) {
     printf("\t                       unset.\n");
     printf("\t-l <result-number>  -- Opens up the file specified in the l^th result.\n");
     printf("\t-n                  -- Display only the file names and not the individual lines within them.\n");
+    printf("\t-i                  -- Ignore hidden files and directories.\n");
     printf("\t-v                  -- Show verbose output.\n");
-    printf("\t-h                  -- Display this message.\n");
 }
 
 int isExecutable(const char *path) {
@@ -262,7 +258,7 @@ int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, co
             if ( options->filePattern ) {
                 size_t dummy1, dummy2;
 
-                if ( grrSearch(nfa,entry->d_name,strlen(entry->d_name),&dummy1,&dummy2,NULL,0) != GRR_RET_OK ) {
+                if ( grrSearch(options->filePattern,entry->d_name,strlen(entry->d_name),&dummy1,&dummy2,NULL,0) != GRR_RET_OK ) {
                     continue;
                 }
             }
