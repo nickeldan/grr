@@ -371,13 +371,12 @@ int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
     }
     free(stack.frames);
 
-    current->description=malloc(len+1);
-    if ( !current->description ) {
+    current->current.records=calloc(current->length+1,sizeof(nfaStateRecord));
+    current->next.records=calloc(current->length+1,sizeof(nfaStateRecord));
+    if ( !current->current.records || !current->next.records ) {
         ret=GRR_RET_OUT_OF_MEMORY;
         goto error;
     }
-    memcpy(current->description,string,len);
-    current->description[len]='\0';
 
     *nfa=current;
     return GRR_RET_OK;

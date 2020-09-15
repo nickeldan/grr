@@ -29,9 +29,22 @@ typedef struct nfaNode {
 	unsigned char twoTransitions;
 } nfaNode;
 
+typedef struct nfaStateRecord {
+    size_t startIdx;
+    size_t endIdx;
+    size_t score;
+    unsigned int state;
+} nfaStateRecord;
+
+typedef struct nfaStateSet {
+    nfaStateRecord *records;
+    unsigned int length;
+} nfaStateSet;
+
 struct grrNfaStruct {
-    char *description;
 	nfaNode *nodes;
+    nfaStateSet current;
+    nfaStateSet next;
 	unsigned int length;
 };
 
