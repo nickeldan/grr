@@ -9,7 +9,7 @@ num_tests=$1
 
 cd $(dirname ${BASH_SOURCE[0]})
 for i in $(seq 1 $num_tests); do
-    time ../grr "[a-z][a-zA-Z0-9_]+" -d ../.. -i
+    time ../grr "[a-z][a-zA-Z0-9_]*" -d ../.. -i
 done > /dev/null 2> .stats
 
 ./stats.py

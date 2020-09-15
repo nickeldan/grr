@@ -49,7 +49,7 @@ static int addDisjunctionToNfa(grrNfa nfa1, grrNfa nfa2);
 static int checkForQuantifier(grrNfa nfa, const char *string, size_t len, size_t idx, size_t *newIdx);
 static int resolveBraces(grrNfa nfa, const char *string, size_t len, size_t idx, size_t *newIdx);
 
-int grrCompilePattern(const char *string, size_t len, grrNfa *nfa) {
+int grrCompile(const char *string, size_t len, grrNfa *nfa) {
     int ret;
     nfaStack stack={0};
     grrNfa current;
@@ -636,6 +636,28 @@ static int checkForQuantifier(grrNfa nfa, const char *string, size_t len, size_t
 
     *newIdx=idx+1;
 
+    if ( plus ) {
+        unsigned int length;
+        nfaNode *success;
+
+        length=nfa->length;
+        success=realloc(nfa->nodes,sizeof(*success)*(length+1));
+        if ( !success ) {
+            return GRR_RET_OUT_OF_MEMORY;
+        }
+        nfa->nodes=success;
+
+        memset(success+length,0,sizeof(*success));
+        success[length].twoTransitions=1;
+        for (int k=0; k<2; k++) {
+            setSymbol(&success[length].transitions[k],GRR_EMPTY_TRANSITION_CODE);
+        }
+        success[length].transitions[0].motion=-1*(int)length;
+        success[length].transitions[1].motion=1;
+
+        nfa->length++;
+    }
+
     if ( question ) {
         if ( nfa->nodes[0].twoTransitions ) {
             nfaNode *success;
@@ -667,28 +689,6 @@ static int checkForQuantifier(grrNfa nfa, const char *string, size_t len, size_t
             node->transitions[1].motion=nfa->length;
             node->twoTransitions=1;
         }
-    }
-
-    if ( plus ) {
-        unsigned int length;
-        nfaNode *success;
-
-        length=nfa->length;
-        success=realloc(nfa->nodes,sizeof(*success)*(length+1));
-        if ( !success ) {
-            return GRR_RET_OUT_OF_MEMORY;
-        }
-        nfa->nodes=success;
-
-        memset(success+length,0,sizeof(*success));
-        success[length].twoTransitions=1;
-        for (int k=0; k<2; k++) {
-            setSymbol(&success[length].transitions[k],GRR_EMPTY_TRANSITION_CODE);
-        }
-        success[length].transitions[0].motion=-1*(int)length;
-        success[length].transitions[1].motion=1;
-
-        nfa->length++;
     }
 
     return GRR_RET_OK;

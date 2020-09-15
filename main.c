@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
         return GRR_RET_BAD_DATA;
     }
 
-    ret=grrCompilePattern(argv[1],strlen(argv[1]),&pattern);
+    ret=grrCompile(argv[1],strlen(argv[1]),&pattern);
     if ( ret != GRR_RET_OK ) {
         fprintf(stderr,"Could not compile pattern.\n");
         return ret;
@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
             break;
 
             case 'f':
-            ret=grrCompilePattern(optarg,strlen(optarg),&options.filePattern);
+            ret=grrCompile(optarg,strlen(optarg),&options.filePattern);
             if ( ret != GRR_RET_OK ) {
                 fprintf(stderr,"Could not compile file pattern.\n");
                 goto done;

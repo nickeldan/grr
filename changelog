@@ -1,3 +1,7 @@
 since 1.0.0:
-	- removed a condition check in determineNextStateRecord that was imposing
-	  a 5% slowdown
+	- restructured grrSearch in such a way that sped up the benchmark test by
+	  almost 200%
+	- fixed a bug with the * quantifier that was causing endless empty
+	  transition loops
+	- fixed a bug where grrMatch and grrSearch weren't properly processing tab
+	  characters

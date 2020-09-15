@@ -22,13 +22,6 @@ int grrMatch(const grrNfa nfa, const char *string, size_t len) {
     unsigned char flags=GRR_NFA_FIRST_CHAR_FLAG;
     unsigned char *curStateSet, *nextStateSet;
 
-    for (size_t k=0; k<len; k++) {
-        if ( !isprint(string[k]) ) {
-            fprintf(stderr,"Unprintable character at index %zu: 0x%02x\n", k, (unsigned char)string[k]);
-            return GRR_RET_BAD_DATA;
-        }
-    }
-
     stateSetLen=(nfa->length+1+7)/8; // The +1 is for the accepting state.
     curStateSet=calloc(1,stateSetLen);
     if ( !curStateSet ) {
@@ -46,7 +39,12 @@ int grrMatch(const grrNfa nfa, const char *string, size_t len) {
         bool stillAlive=false;
         char character;
 
-        character=string[idx]-GRR_NFA_ASCII_ADJUSTMENT;
+        character=string[idx];
+        if ( !isprint(character) && character != '\t' ) {
+            ret=GRR_RET_BAD_DATA;
+            goto done;
+        }
+        character=ADJUST_CHARACTER(character);
         memset(nextStateSet,0,stateSetLen);
 
         if ( idx == len-1 ) {
@@ -158,7 +156,7 @@ int grrSearch(grrNfa nfa, const char *string, size_t len, size_t *start, size_t 
             flags |= GRR_NFA_LAST_CHAR_FLAG;
         }
 
-        character -= GRR_NFA_ASCII_ADJUSTMENT;
+        character=ADJUST_CHARACTER(character);
 
         for (unsigned int k=0; k<currentLength; k++) {
             determineNextStateRecord(0,nfa,nfa->current.records[k].state,nfa->current.records+k,character,flags);
