@@ -19,14 +19,16 @@ enum specialCharacterValues {
 #define GRR_NFA_NUM_SYMBOLS (GRR_NFA_ASCII_OFFSET + 0x7e + 1 - 0x20) // ASCII printables
 #define GRR_NFA_ASCII_ADJUSTMENT (0x20 - GRR_NFA_ASCII_OFFSET)
 
+#define ADJUST_CHARACTER(c) ( ( (c) == '\t' )? GRR_NFA_TAB : (c)-GRR_NFA_ASCII_ADJUSTMENT )
+
 typedef struct nfaTransition {
-	int motion;
-	unsigned char symbols[(GRR_NFA_NUM_SYMBOLS+7)/8];
+    int motion;
+    unsigned char symbols[(GRR_NFA_NUM_SYMBOLS+7)/8];
 } nfaTransition;
 
 typedef struct nfaNode {
-	nfaTransition transitions[2];
-	unsigned char twoTransitions;
+    nfaTransition transitions[2];
+    unsigned char twoTransitions;
 } nfaNode;
 
 typedef struct nfaStateRecord {
@@ -42,10 +44,10 @@ typedef struct nfaStateSet {
 } nfaStateSet;
 
 struct grrNfaStruct {
-	nfaNode *nodes;
+    nfaNode *nodes;
     nfaStateSet current;
     nfaStateSet next;
-	unsigned int length;
+    unsigned int length;
 };
 
 #define SET_FLAG(state,flag) (state)[(flag)/8] |= ( 1 << ((flag)%8) )

@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    ret=grrCompilePattern(argv[1],strlen(argv[1]),&nfa);
+    ret=grrCompile(argv[1],strlen(argv[1]),&nfa);
     if ( ret != GRR_RET_OK ) {
         printf("Failed to compile pattern.\n");
         return ret;

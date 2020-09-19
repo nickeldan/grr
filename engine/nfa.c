@@ -3,12 +3,12 @@
 #include "nfaInternals.h"
 
 void grrFreeNfa(grrNfa nfa) {
-	if ( !nfa ) {
-		return;
-	}
+    if ( !nfa ) {
+        return;
+    }
 
-	free(nfa->nodes);
+    free(nfa->nodes);
     free(nfa->current.records);
     free(nfa->next.records);
-	free(nfa);
+    free(nfa);
 }
