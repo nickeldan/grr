@@ -607,7 +607,7 @@ static int addDisjunctionToNfa(grrNfa nfa1, grrNfa nfa2) {
 }
 
 static int checkForQuantifier(grrNfa nfa, const char *string, size_t len, size_t idx, size_t *newIdx) {
-    unsigned int question=0, plus=0;
+    bool question=false, plus=false;
 
     if ( idx+1 == len ) {
         return GRR_RET_OK;
@@ -615,15 +615,15 @@ static int checkForQuantifier(grrNfa nfa, const char *string, size_t len, size_t
 
     switch ( string[idx+1] ) {
         case '?':
-        question=1;
+        question=true;
         break;
 
         case '+':
-        plus=1;
+        plus=true;
         break;
 
         case '*':
-        question=plus=1;
+        question=plus=true;
         break;
 
         case '{':

@@ -256,9 +256,7 @@ int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, co
 
         if ( S_ISREG(fileStat.st_mode) ) {
             if ( options->filePattern ) {
-                size_t dummy1, dummy2;
-
-                if ( grrSearch(options->filePattern,entry->d_name,strlen(entry->d_name),&dummy1,&dummy2,NULL,0) != GRR_RET_OK ) {
+                if ( grrSearch(options->filePattern,entry->d_name,strlen(entry->d_name),NULL,NULL,NULL,0) != GRR_RET_OK ) {
                     continue;
                 }
             }
@@ -410,7 +408,6 @@ int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const
 
 void executeEditor(const char *editor, const char *path, long lineNo) {
     pid_t child;
-    int status;
 
     child=fork();
     switch ( child ) {
@@ -436,7 +433,7 @@ void executeEditor(const char *editor, const char *path, long lineNo) {
         exit(1);
 
         default:
-        while ( waitpid(child,&status,0) <= 0 );
+        while ( waitpid(child,NULL,0) <= 0 );
         break;
     }
 }
