@@ -26,11 +26,11 @@ Options:
     -l <result-number>   Instead of printing the results to the screen, the
                          file denoted by the specified result number will be
                          opened in an editor.  The editor used can be set via
-                         the DEFAULT_EDITOR environment variable or by using
-                         the -f option.  If neither are set, vi/m will be used.
-                         In the case that vi/m is used, the file will be opened
-                         to the line containing the match (or the first line if
-                         the -n option was used).
+                         the EDITOR environment variable or by using the -f
+                         option.  If neither are set, vi/m will be used. In the
+                         case that vi/m is used, the file will be opened to the
+                         line containing the match (or the first line if the -n
+                         option was used).
     -e <editor>          Specifies the editor to be used with the -l option.
                          Has no effect if -l is not used.
     -i                   The directory tree search will ignore all hidden files

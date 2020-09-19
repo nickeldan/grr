@@ -154,7 +154,7 @@ int main(int argc, char **argv) {
 
     if ( options.lineNo >= 0 ) {
         if ( !options.editor ) {
-            options.editor=getenv("DEFAULT_EDITOR");
+            options.editor=getenv("EDITOR");
             if ( !options.editor ) {
                 options.editor=( isExecutable("vim") == GRR_RET_OK )? "vim" : "vi";
             }
@@ -197,8 +197,7 @@ void usage(const char *executable) {
     printf("Options:\n");
     printf("\t-f <file-pattern>   -- Only examine files whose names (excluding the directory) match this regex\n");
     printf("\t-e <editor>         -- When used in conjunction with -l, specifies the editor for opening files.\n");
-    printf("\t                       Defaults to the DEFAULT_EDITOR environment variable or vi/vim if that is\n");
-    printf("\t                       unset.\n");
+    printf("\t                       Defaults to the EDITOR environment variable or vi/vim if that is unset.\n");
     printf("\t-l <result-number>  -- Opens up the file specified in the l^th result.\n");
     printf("\t-n                  -- Display only the file names and not the individual lines within them.\n");
     printf("\t-i                  -- Ignore hidden files and directories.\n");

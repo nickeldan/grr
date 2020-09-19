@@ -1,7 +1,11 @@
 since 1.0.0:
-	- restructured grrSearch in such a way that sped up the benchmark test by
-	  almost 200%
-	- fixed a bug with the * quantifier that was causing endless empty
-	  transition loops
-	- fixed a bug where grrMatch and grrSearch weren't properly processing tab
-	  characters
+    - Restructured grrSearch in such a way that sped up the benchmark test by
+      almost 200%
+    - Fixed a bug with the * quantifier that was causing endless empty
+      transition loops
+    - Fixed a bug where grrMatch and grrSearch weren't properly processing tab
+      characters
+
+since 1.0.1:
+    - The -e option now uses the EDITOR environment variable instead of the
+      DEFAULT_EDITOR variable.
