@@ -10,6 +10,7 @@ enum grrRetValue {
     GRR_RET_BAD_DATA,
     GRR_RET_FILE_ACCESS,
     GRR_RET_OVERFLOW,
+    GRR_RET_MISSING_ENVIRONMENT_VARIABLE,
 };
 
 typedef struct grrNfaStruct *grrNfa;

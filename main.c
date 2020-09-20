@@ -19,11 +19,15 @@ Written by Daniel Walker, 2020.
 #include "engine/nfa.h"
 
 #define GRR_PATH_MAX 4096
+#define GRR_HISTORY "~/.grr_history"
 
 typedef struct grrOptions {
-    grrNfa filePattern;
+    char *pattern_string;
+    char *file_pattern_string;
     const char *editor;
+    grrNfa filePattern;
     long lineNo;
+    int loggerFd;
     bool namesOnly;
     bool verbose;
     bool ignoreHidden;
@@ -32,6 +36,7 @@ typedef struct grrOptions {
 
 void usage(const char *executable);
 int isExecutable(const char *path);
+int compareOptionsToHistory(const grrOptions *options);
 int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, const grrOptions *options);
 int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const grrOptions *options);
 void executeEditor(const char *editor, const char *path, long lineNo);
@@ -153,6 +158,8 @@ int main(int argc, char **argv) {
     }
 
     if ( options.lineNo >= 0 ) {
+        options.loggerFd=-1;
+
         if ( !options.editor ) {
             options.editor=getenv("EDITOR");
             if ( !options.editor ) {
@@ -165,9 +172,23 @@ int main(int argc, char **argv) {
             fprintf(stderr,"Cannot execute %s.\n", options.editor);
             goto done;
         }
+
+        ret=compareOptionsToHistory(&options);
+        if ( ret == GRR_RET_OK ) {
+            goto done;
+        }
     }
     else {
+        char tmp_file[]="./.grrtempXXXXXX";
+
         options.editor=NULL;
+        options.loggerFd=mkstemp(tmp_file);
+        if ( options.loggerFd == -1 ) {
+            perror("mkstemp");
+
+            ret=GRR_RET_FILE_ACCESS;
+            goto done;
+        }
     }
 
     dir=opendir(path);
@@ -187,6 +208,9 @@ int main(int argc, char **argv) {
     }
     if ( options.filePattern ) {
         grrFreeNfa(options.filePattern);
+    }
+    if ( options.loggerFd >= 0 ) {
+        close(options.loggerFd);
     }
 
     return ret;
@@ -221,6 +245,79 @@ int isExecutable(const char *path) {
     pclose(f);
 
     return line[0]? GRR_RET_OK : GRR_RET_NOT_FOUND;
+}
+
+int compareOptionsToHistory(const grrOptions *options) {
+    int ret;
+    size_t len;
+    char line[1024];
+    const char *pwd;
+    FILE *f;
+
+    pwd=getenv("PWD");
+    if ( !pwd ) {
+        if ( options->verbose ) {
+            fprintf(stderr,"PWD environment variable not set.\n");
+        }
+
+        return GRR_RET_MISSING_ENVIRONMENT_VARIABLE;
+    }
+
+    f=fopen(GRR_HISTORY,"rb");
+    if ( !f ) {
+        if ( options->verbose ) {
+            fprintf(stderr,"Failed to open %s: %s\n", GRR_HISTORY, strerror(errno));
+        }
+
+        return GRR_RET_FILE_ACCESS;
+    }
+
+    if ( !fgets(line,sizeof(line),f) ) {
+        goto failed_read;
+    }
+
+    if ( strcmp(line,options->file_pattern) != 0 ) {
+        ret=GRR_RET_BAD_DATA;
+        goto done;
+    }
+
+    if ( !fgets(line,sizeof(line),f) ) {
+        goto failed_read;
+    }
+
+    if ( strcmp(line,pwd) != 0 ) {
+        ret=GRR_RET_BAD_DATA;
+        goto done;
+    }
+
+    if ( !fgets(line,sizeof(line),f) ) {
+        goto failed_read;
+    }
+
+    len=strlen(line);
+    for (size_t k=0; k<len; k++) {
+        switch ( line[k] ) {
+            
+        }
+    }
+
+    failed_read:
+
+    if ( options->verbose ) {
+        if ( ferror(f) ) {
+            fprintf(stderr,"Failed to read from %s.\n", GRR_HISTORY);
+        }
+        else {
+            fprintf(stderr,"Unexpected end of file found in %s.\n", GRR_HISTORY);
+        }
+    }
+    ret=GRR_RET_FILE_ACCESS;
+
+    done:
+
+    fclose(f);
+
+    return ret;
 }
 
 int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, const grrOptions *options) {
