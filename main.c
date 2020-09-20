@@ -24,22 +24,30 @@ Written by Daniel Walker, 2020.
 typedef struct grrOptions {
     char *pattern_string;
     char *file_pattern_string;
+    const char *starting_directory;
     const char *editor;
     grrNfa filePattern;
     long lineNo;
-    int loggerFd;
-    bool namesOnly;
+    int logger_fd;
+    bool names_only;
     bool verbose;
-    bool ignoreHidden;
+    bool ignore_hidden;
     bool colorless;
 } grrOptions;
+
+typedef struct grrSimpleOptions {
+    bool file_pattern;
+    bool names_only;
+    bool ignore_hidden;
+} grrSimpleOptions;
 
 void usage(const char *executable);
 int isExecutable(const char *path);
 int compareOptionsToHistory(const grrOptions *options);
+bool readLine(FILE *f, char *destination, size_t size);
 int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, const grrOptions *options);
 int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const grrOptions *options);
-void executeEditor(const char *editor, const char *path, long lineNo);
+int executeEditor(const char *editor, const char *path, long lineNo);
 
 int main(int argc, char **argv) {
     int ret=GRR_RET_OK, optval;
@@ -47,8 +55,6 @@ int main(int argc, char **argv) {
     grrNfa pattern=NULL;
     grrOptions options={0};
     char path[GRR_PATH_MAX]="./";
-    char *temp;
-    struct stat fileStat;
     DIR *dir;
 
     if ( argc == 1 ) {
@@ -65,6 +71,9 @@ int main(int argc, char **argv) {
     options.lineNo=-1;
 
     while ( (optval=getopt(argc-1,argv+1,":d:f:e:l:nicv")) != -1 ) {
+        struct stat file_stat;
+        char *temp;
+
         switch ( optval ) {
             case 'd':
             temp=argv[optind];
@@ -85,13 +94,13 @@ int main(int argc, char **argv) {
                 goto done;
             }
             ret=GRR_RET_OK;
-            if ( stat(path,&fileStat) != 0 ) {
+            if ( stat(path,&file_stat) != 0 ) {
                 perror("Could not stat starting directory");
                 ret=GRR_RET_FILE_ACCESS;
                 goto done;
             }
 
-            if ( !S_ISDIR(fileStat.st_mode) ) {
+            if ( !S_ISDIR(file_stat.st_mode) ) {
                 fprintf(stderr,"%s is not a directory.\n", path);
                 ret=GRR_RET_BAD_DATA;
                 goto done;
@@ -126,11 +135,11 @@ int main(int argc, char **argv) {
             break;
 
             case 'n':
-            options.namesOnly=true;
+            options.names_only=true;
             break;
 
             case 'i':
-            options.ignoreHidden=true;
+            options.ignore_hidden=true;
             break;
 
             case 'c':
@@ -157,8 +166,10 @@ int main(int argc, char **argv) {
         }
     }
 
+    options.starting_directory=path;
+
     if ( options.lineNo >= 0 ) {
-        options.loggerFd=-1;
+        options.logger_fd=-1;
 
         if ( !options.editor ) {
             options.editor=getenv("EDITOR");
@@ -182,8 +193,8 @@ int main(int argc, char **argv) {
         char tmp_file[]="./.grrtempXXXXXX";
 
         options.editor=NULL;
-        options.loggerFd=mkstemp(tmp_file);
-        if ( options.loggerFd == -1 ) {
+        options.logger_fd=mkstemp(tmp_file);
+        if ( options.logger_fd == -1 ) {
             perror("mkstemp");
 
             ret=GRR_RET_FILE_ACCESS;
@@ -209,8 +220,8 @@ int main(int argc, char **argv) {
     if ( options.filePattern ) {
         grrFreeNfa(options.filePattern);
     }
-    if ( options.loggerFd >= 0 ) {
-        close(options.loggerFd);
+    if ( options.logger_fd >= 0 ) {
+        close(options.logger_fd);
     }
 
     return ret;
@@ -248,20 +259,12 @@ int isExecutable(const char *path) {
 }
 
 int compareOptionsToHistory(const grrOptions *options) {
-    int ret;
+    int ret=GRR_RET_BAD_DATA, fd;
     size_t len;
-    char line[1024];
-    const char *pwd;
+    ssize_t value;
+    char line[GRR_PATH_MAX+10], symbolic_link[50], starting_directory[GRR_PATH_MAX];
     FILE *f;
-
-    pwd=getenv("PWD");
-    if ( !pwd ) {
-        if ( options->verbose ) {
-            fprintf(stderr,"PWD environment variable not set.\n");
-        }
-
-        return GRR_RET_MISSING_ENVIRONMENT_VARIABLE;
-    }
+    grrSimpleOptions observed_options={0};
 
     f=fopen(GRR_HISTORY,"rb");
     if ( !f ) {
@@ -272,34 +275,143 @@ int compareOptionsToHistory(const grrOptions *options) {
         return GRR_RET_FILE_ACCESS;
     }
 
-    if ( !fgets(line,sizeof(line),f) ) {
+    if ( readLine(f,line,sizeof(line)) ) {
         goto failed_read;
     }
-
     if ( strcmp(line,options->file_pattern) != 0 ) {
-        ret=GRR_RET_BAD_DATA;
         goto done;
     }
 
-    if ( !fgets(line,sizeof(line),f) ) {
+    if ( readLine(f,line,sizeof(line)) ) {
         goto failed_read;
     }
 
-    if ( strcmp(line,pwd) != 0 ) {
-        ret=GRR_RET_BAD_DATA;
+    fd=open(options->starting_directory,O_RDONLY);
+    if ( fd == -1 ) {
+        if ( options->verbose ) {
+            fprintf(stderr,"Failed to access %s: %s", options->starting_directory, strerror(errno));
+        }
+
+        ret=GRR_RET_FILE_ACCESS;
+        goto done;
+    }
+    if ( snprintf(symbolic_link,sizeof(symbolic_link),"/proc/%i/fd/%i", getpid(), fd) >= sizeof(symbolic_link) ) {
+        if ( options->verbose ) {
+            fprintf(stderr,"The string '/proc/%i/fd/%i' overflowed the buffer.\n", getpid(), fd);
+        }
+
+        close(fd);
+        ret=GRR_RET_OVERFLOW;
+        goto done;
+    }
+    value=readlink(symbolic_link,starting_directory,sizeof(starting_directory));
+    close(fd);
+    if ( value == -1 ) {
+        if ( options->verbose ) {
+            int local_errno;
+
+            local_errno=errno;
+            fprintf(stderr,"Failed to read symbolic link at '/proc/%i/fd/%i': %s", getpid(), fd, local_errno);
+        }
+
+        ret=GRR_RET_FILE_ACCESS;
         goto done;
     }
 
-    if ( !fgets(line,sizeof(line),f) ) {
+    if ( strcmp(line,starting_directory) != 0 ) {
+        goto done;
+    }
+
+    if ( readLine(f,line,sizeof(line)) ) {
         goto failed_read;
     }
 
     len=strlen(line);
     for (size_t k=0; k<len; k++) {
         switch ( line[k] ) {
-            
+            case 'f':
+            observed_options.file_pattern=true;
+            break;
+
+            case 'n':
+            observed_options.names_only=true;
+            break;
+
+            case 'i':
+            observed_options.ignore_hidden=true;
+            break;
+
+            default:
+            if ( options->verbose ) {
+                fprintf(stderr,"Invalid data found on option line of %s.\n", GRR_HISTORY);
+            }
+            goto done;
         }
     }
+
+    if ( observed_options.names_only != options->names_only ) {
+        goto done;
+    }
+
+    if ( observed_options.ignore_hidden != options->ignore_hidden ) {
+        goto done;
+    }
+
+    if ( observed_options.file_pattern ) {
+        if ( !options->file_pattern ) {
+            goto done;
+        }
+
+        if ( !readLine(f,line,sizeof(line)) ) {
+            goto failed_read;
+        }
+        if ( strcmp(line,options->file_pattern_string) != 0 ) {
+            goto done;
+        }
+    }
+    else if ( options->file_pattern ) {
+        goto done;
+    }
+
+    for (long k=0; k<options->line_no; k++) {
+        if ( !readLine(f,line,sizeof(line)) ) {
+            goto failed_read;
+        }
+    }
+
+    if ( observed_options.names_only ) {
+        ret=executeEditor(options->editor,line,1);
+    }
+    else {
+        char *colon_ptr, *temp;
+        long line_no;
+
+        colon_ptr=strstr(line,":");
+        if ( !colon_ptr || colon_ptr[1] == '\0' ) {
+            if ( options->verbose ) {
+                fprintf(stderr,"No ':' found for result '%s' in %s.\n", line, GRR_HISTORY);
+            }
+
+            goto done;
+        }
+
+        line[colon_ptr-(char*)line]='\0';
+        line_no=strtol(colon_ptr+1,&temp,10);
+        if ( temp[0] != '\0'
+                || ( line_no == LONG_MAX && errno == ERANGE )
+                || line_no < 1
+        ) {
+            if ( options->verbose ) {
+                fprintf(stderr,"Invalid line number found for result '%s' in %s.\n", line, GRR_HISTORY);
+            }
+
+            goto done;
+        }
+
+        ret=executeEditor(options->editor,line,line_no);
+    }
+    ret=( ret == 0 )? GRR_RET_OK : GRR_RET_EXEC;
+    goto done;
 
     failed_read:
 
@@ -320,6 +432,21 @@ int compareOptionsToHistory(const grrOptions *options) {
     return ret;
 }
 
+bool readLine(FILE *f, char *destination, size_t size) {
+    size_t len;
+
+    if ( !fgets(destination,size,f) ) {
+        return false;
+    }
+    len=strlen(destination);
+    if ( len == 0 ) {
+        return false;
+    }
+
+    destination[len-1]='\0';
+    return true;
+}
+
 int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, const grrOptions *options) {
     int ret=GRR_RET_OK;
     size_t offset, newLen;
@@ -328,10 +455,10 @@ int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, co
     offset=strlen(path);
 
     while ( (entry=readdir(dir)) ) {
-        struct stat fileStat;
+        struct stat file_stat;
         
         if ( entry->d_name[0] == '.' ) {
-            if ( options->ignoreHidden || entry->d_name[1] == '\0'
+            if ( options->ignore_hidden || entry->d_name[1] == '\0'
                     || ( entry->d_name[1] == '.' && entry->d_name[2] == '\0' )
             ) {
                 continue;
@@ -343,14 +470,14 @@ int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, co
         strncat(path,entry->d_name,GRR_PATH_MAX);
         newLen=strlen(path);
 
-        if ( stat(path,&fileStat) != 0 ) {
+        if ( stat(path,&file_stat) != 0 ) {
             if ( options->verbose ) {
                 fprintf(stderr,"Could not stat %s: %s\n", path, strerror(errno));
             }
             continue;
         }
 
-        if ( S_ISREG(fileStat.st_mode) ) {
+        if ( S_ISREG(file_stat.st_mode) ) {
             if ( options->filePattern ) {
                 if ( grrSearch(options->filePattern,entry->d_name,strlen(entry->d_name),NULL,NULL,NULL,0) != GRR_RET_OK ) {
                     continue;
@@ -362,7 +489,7 @@ int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, co
                 goto done;
             }
         }
-        else if ( S_ISDIR(fileStat.st_mode) ) {
+        else if ( S_ISDIR(file_stat.st_mode) ) {
             DIR *subdir;
 
             if ( newLen+1 == GRR_PATH_MAX ) {
@@ -446,17 +573,17 @@ int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const
 
         if ( options->editor ) {
             if ( (*lineNo)-1 == options->lineNo ) {
-                executeEditor(options->editor,path,options->namesOnly? 1 : fileLineNo);
+                executeEditor(options->editor,path,options->names_only? 1 : fileLineNo);
                 ret=GRR_RET_BREAK_LOOP;
                 break;
             }
-            else if ( options->namesOnly ) {
+            else if ( options->names_only ) {
                 break;
             }
             continue;
         }
 
-        if ( options->namesOnly ) {
+        if ( options->names_only ) {
             printf("(%li) %s\n", (*lineNo)-1, path);
             break;
         }
@@ -502,14 +629,15 @@ int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const
     return ret;
 }
 
-void executeEditor(const char *editor, const char *path, long lineNo) {
+int executeEditor(const char *editor, const char *path, long lineNo) {
+    int status;
     pid_t child;
 
     child=fork();
     switch ( child ) {
         case -1:
         perror("fork");
-        return;
+        return -1;
 
         case 0:
         if ( strncmp(editor,"vi",3) == 0 || strncmp(editor,"vim",4) == 0 ) {
@@ -526,10 +654,16 @@ void executeEditor(const char *editor, const char *path, long lineNo) {
         }
 
         perror(editor);
-        exit(1);
+        exit(-2);
 
         default:
-        while ( waitpid(child,NULL,0) <= 0 );
+        while ( waitpid(child,&status,0) <= 0 );
         break;
     }
+
+    if ( WIFSIGNALED(status) ) {
+        return WTERMSIG(status)+1;
+    }
+
+    return WEXITSTATUS(status);
 }
