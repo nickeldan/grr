@@ -275,14 +275,14 @@ int compareOptionsToHistory(const grrOptions *options) {
         return GRR_RET_FILE_ACCESS;
     }
 
-    if ( readLine(f,line,sizeof(line)) ) {
+    if ( !readLine(f,line,sizeof(line)) ) {
         goto failed_read;
     }
     if ( strcmp(line,options->file_pattern) != 0 ) {
         goto done;
     }
 
-    if ( readLine(f,line,sizeof(line)) ) {
+    if ( !readLine(f,line,sizeof(line)) ) {
         goto failed_read;
     }
 
@@ -322,7 +322,7 @@ int compareOptionsToHistory(const grrOptions *options) {
         goto done;
     }
 
-    if ( readLine(f,line,sizeof(line)) ) {
+    if ( !readLine(f,line,sizeof(line)) ) {
         goto failed_read;
     }
 
@@ -343,9 +343,9 @@ int compareOptionsToHistory(const grrOptions *options) {
 
             default:
             if ( options->verbose ) {
-                fprintf(stderr,"Invalid data found on option line of %s.\n", GRR_HISTORY);
+                fprintf(stderr,"Skipping unsupported option: '%c'\n", line[k]);
             }
-            goto done;
+            break;
         }
     }
 
