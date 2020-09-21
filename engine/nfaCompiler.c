@@ -378,6 +378,14 @@ int grrCompile(const char *string, size_t len, grrNfa *nfa) {
         goto error;
     }
 
+    current->string=malloc(len+1);
+    if ( !current->string ) {
+        ret=GRR_RET_OUT_OF_MEMORY;
+        goto error;
+    }
+    memcpy(current->string,string,len);
+    current->string[len]='\0';
+
     *nfa=current;
     return GRR_RET_OK;
 

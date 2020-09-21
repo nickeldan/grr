@@ -45,6 +45,7 @@ typedef struct nfaStateSet {
 
 struct grrNfaStruct {
     nfaNode *nodes;
+    char *string;
     nfaStateSet current;
     nfaStateSet next;
     unsigned int length;

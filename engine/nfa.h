@@ -7,4 +7,6 @@
 
 void grrFreeNfa(grrNfa nfa);
 
+const char *grrDescription(const grrNfa nfa);
+
 #endif // __GRR_NFA_H__

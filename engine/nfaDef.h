@@ -11,6 +11,7 @@ enum grrRetValue {
     GRR_RET_FILE_ACCESS,
     GRR_RET_OVERFLOW,
     GRR_RET_EXEC,
+    GRR_RET_OTHER,
 };
 
 typedef struct grrNfaStruct *grrNfa;

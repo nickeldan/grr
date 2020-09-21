@@ -10,6 +10,7 @@ Written by Daniel Walker, 2020.
 #include <errno.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <dirent.h>
 #include <sys/types.h>
@@ -19,16 +20,18 @@ Written by Daniel Walker, 2020.
 #include "engine/nfa.h"
 
 #define GRR_PATH_MAX 4096
-#define GRR_HISTORY "~/.grr_history"
+#define GRR_HISTORY ".grr_history"
+
+#ifndef MIN
+#define MIN(a,b) ( ( (a) < (b) )? (a) : (b) )
+#endif
 
 typedef struct grrOptions {
-    char *pattern_string;
-    char *file_pattern_string;
     const char *starting_directory;
     const char *editor;
-    grrNfa filePattern;
-    long lineNo;
-    int logger_fd;
+    FILE *logger;
+    grrNfa file_pattern;
+    long line_no;
     bool names_only;
     bool verbose;
     bool ignore_hidden;
@@ -45,16 +48,17 @@ void usage(const char *executable);
 int isExecutable(const char *path);
 int compareOptionsToHistory(const grrOptions *options);
 bool readLine(FILE *f, char *destination, size_t size);
-int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, const grrOptions *options);
-int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const grrOptions *options);
-int executeEditor(const char *editor, const char *path, long lineNo);
+int searchDirectoryTree(DIR *dir, char *path, long *line_no, const grrNfa nfa, const grrOptions *options);
+int searchFileForPattern(const char *path, long *line_no, const grrNfa nfa, const grrOptions *options);
+int executeEditor(const char *editor, const char *path, long line_no);
 
 int main(int argc, char **argv) {
     int ret=GRR_RET_OK, optval;
-    long lineNo;
+    long line_no;
     grrNfa pattern=NULL;
     grrOptions options={0};
     char path[GRR_PATH_MAX]="./";
+    char tmp_file[]="./.grrtempXXXXXX";
     DIR *dir;
 
     if ( argc == 1 ) {
@@ -68,7 +72,7 @@ int main(int argc, char **argv) {
         return ret;
     }
 
-    options.lineNo=-1;
+    options.line_no=-1;
 
     while ( (optval=getopt(argc-1,argv+1,":d:f:e:l:nicv")) != -1 ) {
         struct stat file_stat;
@@ -114,7 +118,7 @@ int main(int argc, char **argv) {
             break;
 
             case 'f':
-            ret=grrCompile(optarg,strlen(optarg),&options.filePattern);
+            ret=grrCompile(optarg,strlen(optarg),&options.file_pattern);
             if ( ret != GRR_RET_OK ) {
                 fprintf(stderr,"Could not compile file pattern.\n");
                 goto done;
@@ -126,8 +130,8 @@ int main(int argc, char **argv) {
             break;
 
             case 'l':
-            options.lineNo=strtol(optarg,&temp,10);
-            if ( temp == optarg || *temp || options.lineNo < 0 || ( options.lineNo == LONG_MAX && errno == ERANGE ) ) {
+            options.line_no=strtol(optarg,&temp,10);
+            if ( temp == optarg || *temp || options.line_no < 0 || ( options.line_no == LONG_MAX && errno == ERANGE ) ) {
                 fprintf(stderr,"Invalid 'l' option: %s\n", optarg);
                 ret=GRR_RET_BAD_DATA;
                 goto done;
@@ -168,9 +172,7 @@ int main(int argc, char **argv) {
 
     options.starting_directory=path;
 
-    if ( options.lineNo >= 0 ) {
-        options.logger_fd=-1;
-
+    if ( options.line_no >= 0 ) {
         if ( !options.editor ) {
             options.editor=getenv("EDITOR");
             if ( !options.editor ) {
@@ -190,26 +192,70 @@ int main(int argc, char **argv) {
         }
     }
     else {
-        char tmp_file[]="./.grrtempXXXXXX";
+        int fd;
+        char starting_directory[GRR_PATH_MAX];
 
         options.editor=NULL;
-        options.logger_fd=mkstemp(tmp_file);
-        if ( options.logger_fd == -1 ) {
-            perror("mkstemp");
+        fd=mkstemp(tmp_file);
+        if ( fd == -1 ) {
+            if ( options.verbose ) {
+                fprintf(stderr,"Failed to create create history file: %s\n", strerror(errno));
+            }
 
             ret=GRR_RET_FILE_ACCESS;
             goto done;
+        }
+
+        options.logger=fdopen(fd,"wb");
+        if ( !options.logger ) {
+            if ( options.verbose ) {
+                fprintf(stderr,"fdopen failed when creating history file: %s\n", strerror(errno));
+            }
+
+            close(fd);
+            ret=GRR_RET_OUT_OF_MEMORY;
+            goto done;
+        }
+
+        fprintf(options.logger,"%s\n", grrDescription(pattern));
+
+        fd=open(path,O_RDONLY);
+        if ( fd == -1 ) {
+            if ( options.verbose ) {
+                fprintf(stderr,"Failed to access starting directory: %s\n", strerror(errno));
+            }
+
+            ret=GRR_RET_FILE_ACCESS;
+            goto done;
+        }
+
+        realpath(path,starting_directory);
+        fprintf(options.logger,"%s\n", starting_directory);
+
+        if ( options.file_pattern ) {
+            fprintf(options.logger,"f");
+        }
+        if ( options.names_only ) {
+            fprintf(options.logger,"n");
+        }
+        if ( options.ignore_hidden ) {
+            fprintf(options.logger,"i");
+        }
+        fprintf(options.logger,"\n");
+
+        if ( options.file_pattern ) {
+            fprintf(options.logger,"%s\n", grrDescription(options.file_pattern));
         }
     }
 
     dir=opendir(path);
     if ( !dir ) {
-        fprintf(stderr,"Could not access starting directory.\n");
+        fprintf(stderr,"Failed to access starting directory.\n");
         ret=GRR_RET_FILE_ACCESS;
         goto done;
     }
-    lineNo=0;
-    searchDirectoryTree(dir,path,&lineNo,pattern,&options);
+    line_no=-1;
+    searchDirectoryTree(dir,path,&line_no,pattern,&options);
     closedir(dir);
 
     done:
@@ -217,11 +263,34 @@ int main(int argc, char **argv) {
     if ( pattern ) {
         grrFreeNfa(pattern);
     }
-    if ( options.filePattern ) {
-        grrFreeNfa(options.filePattern);
+    if ( options.file_pattern ) {
+        grrFreeNfa(options.file_pattern);
     }
-    if ( options.logger_fd >= 0 ) {
-        close(options.logger_fd);
+    if ( options.logger ) {
+        fclose(options.logger);
+
+        if ( ret == GRR_RET_OK ) {
+            const char *home;
+
+            home=getenv("HOME");
+            if ( home ) {
+                char new_path[GRR_PATH_MAX];
+
+                snprintf(new_path,sizeof(new_path),"%s/%s", home, GRR_HISTORY);
+                if ( rename(tmp_file,new_path) != 0 ) {
+                    if ( options.verbose ) {
+                        fprintf(stderr,"Failed to move the history file into the HOME directory: %s\n", strerror(errno));
+                    }
+                    unlink(tmp_file);
+                }
+            }
+            else {
+                if ( options.verbose ) {
+                    fprintf(stderr,"Cannot save the history file because the HOME environment variable is unset.\n");
+                }
+                unlink(tmp_file);
+            }
+        }
     }
 
     return ret;
@@ -243,6 +312,10 @@ int isExecutable(const char *path) {
     char line[GRR_PATH_MAX];
     FILE *f;
 
+    if ( access(path,X_OK) == 0 ) {
+        return GRR_RET_OK;
+    }
+
     if ( snprintf(line,sizeof(line),"which %s", path) >= sizeof(line) ) {
         return GRR_RET_OVERFLOW;
     }
@@ -259,17 +332,33 @@ int isExecutable(const char *path) {
 }
 
 int compareOptionsToHistory(const grrOptions *options) {
-    int ret=GRR_RET_BAD_DATA, fd;
+    int ret=GRR_RET_BAD_DATA;
     size_t len;
-    ssize_t value;
-    char line[GRR_PATH_MAX+10], symbolic_link[50], starting_directory[GRR_PATH_MAX];
+    const char *home;
+    char history_file[50], line[GRR_PATH_MAX+10], absolute_starting_directory[GRR_PATH_MAX];
     FILE *f;
     grrSimpleOptions observed_options={0};
 
-    f=fopen(GRR_HISTORY,"rb");
+    home=getenv("HOME");
+    if ( !home ) {
+        if ( options->verbose ) {
+            fprintf(stderr,"The HOME environment variable is unset.\n");
+        }
+
+        return GRR_RET_OTHER;
+    }
+    if ( snprintf(history_file,sizeof(history_file),"%s/%s", home, GRR_HISTORY) >= sizeof(history_file) ) {
+        if ( options->verbose ) {
+            fprintf(stderr,"%s/%s was too big for the buffer.\n", home, GRR_HISTORY);
+        }
+
+        return GRR_RET_OVERFLOW;
+    }
+
+    f=fopen(history_file,"rb");
     if ( !f ) {
         if ( options->verbose ) {
-            fprintf(stderr,"Failed to open %s: %s\n", GRR_HISTORY, strerror(errno));
+            fprintf(stderr,"Failed to open %s: %s\n", history_file, strerror(errno));
         }
 
         return GRR_RET_FILE_ACCESS;
@@ -278,7 +367,7 @@ int compareOptionsToHistory(const grrOptions *options) {
     if ( !readLine(f,line,sizeof(line)) ) {
         goto failed_read;
     }
-    if ( strcmp(line,options->file_pattern) != 0 ) {
+    if ( strcmp(line,grrDescription(options->file_pattern)) != 0 ) {
         goto done;
     }
 
@@ -286,39 +375,16 @@ int compareOptionsToHistory(const grrOptions *options) {
         goto failed_read;
     }
 
-    fd=open(options->starting_directory,O_RDONLY);
-    if ( fd == -1 ) {
+    if ( !realpath(options->starting_directory,absolute_starting_directory) ) {
         if ( options->verbose ) {
-            fprintf(stderr,"Failed to access %s: %s", options->starting_directory, strerror(errno));
+            fprintf(stderr,"Failed to resolve absolute path of starting directory.\n");
         }
 
-        ret=GRR_RET_FILE_ACCESS;
-        goto done;
-    }
-    if ( snprintf(symbolic_link,sizeof(symbolic_link),"/proc/%i/fd/%i", getpid(), fd) >= sizeof(symbolic_link) ) {
-        if ( options->verbose ) {
-            fprintf(stderr,"The string '/proc/%i/fd/%i' overflowed the buffer.\n", getpid(), fd);
-        }
-
-        close(fd);
-        ret=GRR_RET_OVERFLOW;
-        goto done;
-    }
-    value=readlink(symbolic_link,starting_directory,sizeof(starting_directory));
-    close(fd);
-    if ( value == -1 ) {
-        if ( options->verbose ) {
-            int local_errno;
-
-            local_errno=errno;
-            fprintf(stderr,"Failed to read symbolic link at '/proc/%i/fd/%i': %s", getpid(), fd, local_errno);
-        }
-
-        ret=GRR_RET_FILE_ACCESS;
+        ret=GRR_RET_OTHER;
         goto done;
     }
 
-    if ( strcmp(line,starting_directory) != 0 ) {
+    if ( strcmp(line,absolute_starting_directory) != 0 ) {
         goto done;
     }
 
@@ -365,7 +431,7 @@ int compareOptionsToHistory(const grrOptions *options) {
         if ( !readLine(f,line,sizeof(line)) ) {
             goto failed_read;
         }
-        if ( strcmp(line,options->file_pattern_string) != 0 ) {
+        if ( strcmp(line,grrDescription(options->file_pattern)) != 0 ) {
             goto done;
         }
     }
@@ -389,7 +455,7 @@ int compareOptionsToHistory(const grrOptions *options) {
         colon_ptr=strstr(line,":");
         if ( !colon_ptr || colon_ptr[1] == '\0' ) {
             if ( options->verbose ) {
-                fprintf(stderr,"No ':' found for result '%s' in %s.\n", line, GRR_HISTORY);
+                fprintf(stderr,"No ':' found for result '%s' in %s.\n", line, history_file);
             }
 
             goto done;
@@ -402,7 +468,7 @@ int compareOptionsToHistory(const grrOptions *options) {
                 || line_no < 1
         ) {
             if ( options->verbose ) {
-                fprintf(stderr,"Invalid line number found for result '%s' in %s.\n", line, GRR_HISTORY);
+                fprintf(stderr,"Invalid line number found for result '%s' in %s.\n", line, history_file);
             }
 
             goto done;
@@ -417,10 +483,10 @@ int compareOptionsToHistory(const grrOptions *options) {
 
     if ( options->verbose ) {
         if ( ferror(f) ) {
-            fprintf(stderr,"Failed to read from %s.\n", GRR_HISTORY);
+            fprintf(stderr,"Failed to read from %s.\n", history_file);
         }
         else {
-            fprintf(stderr,"Unexpected end of file found in %s.\n", GRR_HISTORY);
+            fprintf(stderr,"Unexpected end of file found in %s.\n", history_file);
         }
     }
     ret=GRR_RET_FILE_ACCESS;
@@ -447,7 +513,7 @@ bool readLine(FILE *f, char *destination, size_t size) {
     return true;
 }
 
-int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, const grrOptions *options) {
+int searchDirectoryTree(DIR *dir, char *path, long *line_no, const grrNfa nfa, const grrOptions *options) {
     int ret=GRR_RET_OK;
     size_t offset, newLen;
     struct dirent *entry;
@@ -478,13 +544,13 @@ int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, co
         }
 
         if ( S_ISREG(file_stat.st_mode) ) {
-            if ( options->filePattern ) {
-                if ( grrSearch(options->filePattern,entry->d_name,strlen(entry->d_name),NULL,NULL,NULL,0) != GRR_RET_OK ) {
+            if ( options->file_pattern ) {
+                if ( grrSearch(options->file_pattern,entry->d_name,strlen(entry->d_name),NULL,NULL,NULL,0) != GRR_RET_OK ) {
                     continue;
                 }
             }
 
-            if ( searchFileForPattern(path,lineNo,nfa,options) == GRR_RET_BREAK_LOOP ) {
+            if ( searchFileForPattern(path,line_no,nfa,options) == GRR_RET_BREAK_LOOP ) {
                 ret=GRR_RET_BREAK_LOOP;
                 goto done;
             }
@@ -511,7 +577,7 @@ int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, co
                 continue;
             }
 
-            ret=searchDirectoryTree(subdir,path,lineNo,nfa,options);
+            ret=searchDirectoryTree(subdir,path,line_no,nfa,options);
             closedir(subdir);
             if ( ret == GRR_RET_BREAK_LOOP ) {
                 goto done;
@@ -527,7 +593,7 @@ int searchDirectoryTree(DIR *dir, char *path, long *lineNo, const grrNfa nfa, co
     return ret;
 }
 
-int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const grrOptions *options) {
+int searchFileForPattern(const char *path, long *line_no, const grrNfa nfa, const grrOptions *options) {
     int ret=GRR_RET_NOT_FOUND;
     FILE *f;
     char line[2048];
@@ -546,8 +612,8 @@ int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const
 
     for (size_t fileLineNo=1; fgets(line,sizeof(line),f); fileLineNo++) {
         size_t len, start, end, offset, cursor;
-        const char changeColorToRed[]={0x1b,'[','9','1','m'};
-        const char restoreColor[]={0x1b,'[','m'};
+        const char change_color_to_red[]={0x1b,'[','9','1','m'};
+        const char restore_color[]={0x1b,'[','m'};
 
         len=strlen(line);
         if ( len > 0 && line[len-1] == '\n' ) {
@@ -569,10 +635,10 @@ int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const
             continue;
         }
 
-        (*lineNo)++;
+        (*line_no)++;
 
         if ( options->editor ) {
-            if ( (*lineNo)-1 == options->lineNo ) {
+            if ( *line_no == options->line_no ) {
                 executeEditor(options->editor,path,options->names_only? 1 : fileLineNo);
                 ret=GRR_RET_BREAK_LOOP;
                 break;
@@ -583,12 +649,20 @@ int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const
             continue;
         }
 
+        if ( options->logger ) {
+            fprintf(options->logger,"%s", path);
+            if ( !options->names_only ) {
+                fprintf(options->logger,":%li", *line_no);
+            }
+            fprintf(options->logger,"\n");
+        }
+
         if ( options->names_only ) {
-            printf("(%li) %s\n", (*lineNo)-1, path);
+            printf("(%li) %s\n", *line_no, path);
             break;
         }
 
-        printf("(%li) %s (line %zu): ", (*lineNo)-1, path, fileLineNo);
+        printf("(%li) %s (line %zu): ", *line_no, path, fileLineNo);
         if ( start > 15 ) {
             printf("... ");
             offset=start-15;
@@ -600,7 +674,7 @@ int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const
 
         write(STDOUT_FILENO,line+offset,start-offset);
         if ( !options->colorless ) {
-            write(STDOUT_FILENO,changeColorToRed,sizeof(changeColorToRed));
+            write(STDOUT_FILENO,change_color_to_red,sizeof(change_color_to_red));
         }
         if ( end-start > 50 ) {
             write(STDOUT_FILENO,line+start,10);
@@ -611,7 +685,7 @@ int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const
             write(STDOUT_FILENO,line+start,end-start);
         }
         if ( !options->colorless ) {
-            write(STDOUT_FILENO,restoreColor,sizeof(restoreColor));
+            write(STDOUT_FILENO,restore_color,sizeof(restore_color));
         }
 
         if ( len-end > 15 ) {
@@ -629,7 +703,7 @@ int searchFileForPattern(const char *path, long *lineNo, const grrNfa nfa, const
     return ret;
 }
 
-int executeEditor(const char *editor, const char *path, long lineNo) {
+int executeEditor(const char *editor, const char *path, long line_no) {
     int status;
     pid_t child;
 
@@ -643,8 +717,8 @@ int executeEditor(const char *editor, const char *path, long lineNo) {
         if ( strncmp(editor,"vi",3) == 0 || strncmp(editor,"vim",4) == 0 ) {
             char argument[50];
 
-            if ( snprintf(argument,sizeof(argument),"+%li", lineNo) >= sizeof(lineNo) ) {
-                fprintf(stderr,"lineNo is too big to fit into buffer: %li\n", lineNo);
+            if ( snprintf(argument,sizeof(argument),"+%li", line_no) >= sizeof(line_no) ) {
+                fprintf(stderr,"line_no is too big to fit into buffer: %li\n", line_no);
                 exit(1);
             }
             execlp(editor,editor,argument,path,NULL);

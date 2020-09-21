@@ -10,5 +10,10 @@ void grrFreeNfa(grrNfa nfa) {
     free(nfa->nodes);
     free(nfa->current.records);
     free(nfa->next.records);
+    free(nfa->string);
     free(nfa);
+}
+
+const char *grrDescription(const grrNfa nfa) {
+    return nfa->string;
 }
