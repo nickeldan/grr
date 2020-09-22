@@ -11,7 +11,7 @@
       DEFAULT_EDITOR variable.
     - A history file is now used.  The -y option has been added to disable the
       history file's use.
-	- The search pattern is now specified by the -r option.
-	- Added the -u and -h options.
-	- Fixed a bug in grrSearch where matches were being given the incorrect
-	  length.
+    - The search pattern is now specified by the -r option.
+    - Added the -u and -h options.
+    - Fixed a bug in grrSearch where matches were being given the incorrect
+      length.

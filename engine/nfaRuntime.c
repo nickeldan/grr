@@ -14,7 +14,7 @@ Written by Daniel Walker, 2020.
 static bool determineNextState(unsigned int depth, const grrNfa nfa, unsigned int state, char character, unsigned char flags, unsigned char *nextStateSet);
 static bool canTransitionToAcceptingState(const grrNfa nfa, unsigned int state);
 static void determineNextStateRecord(unsigned int depth, grrNfa nfa, unsigned int state, const nfaStateRecord *record, char character, unsigned char flags);
-static void maybePlaceRecord(const nfaStateRecord *record, unsigned int state, nfaStateSet *set);
+static void maybePlaceRecord(const nfaStateRecord *record, unsigned int state, nfaStateSet *set, bool update_score);
 
 int grrMatch(const grrNfa nfa, const char *string, size_t len) {
     int ret;
@@ -252,7 +252,7 @@ static void determineNextStateRecord(unsigned int depth, grrNfa nfa, unsigned in
     const nfaNode *nodes;
 
     if ( state == nfa->length ) {
-        maybePlaceRecord(record,state,&nfa->next);
+        maybePlaceRecord(record,state,&nfa->next,(depth > 0));
         return;
     }
 
@@ -267,7 +267,7 @@ static void determineNextStateRecord(unsigned int depth, grrNfa nfa, unsigned in
 
         symbols=nodes[state].transitions[k].symbols;
         if ( IS_FLAG_SET(symbols,character) ) {
-            maybePlaceRecord(record,newState,&nfa->next);
+            maybePlaceRecord(record,newState,&nfa->next,true);
         }
         else if ( IS_FLAG_SET(symbols,GRR_NFA_EMPTY_TRANSITION) ) {
             if ( IS_FLAG_SET(symbols,GRR_NFA_FIRST_CHAR) && !(flags&GRR_NFA_FIRST_CHAR_FLAG) ) {
@@ -278,13 +278,12 @@ static void determineNextStateRecord(unsigned int depth, grrNfa nfa, unsigned in
                 continue;
             }
 
-
             determineNextStateRecord(depth+1,nfa,newState,record,character,flags);
         }
     }
 }
 
-static void maybePlaceRecord(const nfaStateRecord *record, unsigned int state, nfaStateSet *set) {
+static void maybePlaceRecord(const nfaStateRecord *record, unsigned int state, nfaStateSet *set, bool update_score) {
     unsigned int k;
 
     for (k=0; k<set->length; k++) {
@@ -294,9 +293,11 @@ static void maybePlaceRecord(const nfaStateRecord *record, unsigned int state, n
     }
     if ( k == set->length || record->score+1 > set->records[k].score ) {
         set->records[k].startIdx=record->startIdx;
-        if ( record->state != state ) {
-            set->records[k].endIdx=record->endIdx+1;
-            set->records[k].score=record->score+1;
+        set->records[k].endIdx=record->endIdx;
+        set->records[k].score=record->score;
+        if ( update_score ) {
+            set->records[k].endIdx++;
+            set->records[k].score++;
         }
 
         if ( k == set->length ) {
