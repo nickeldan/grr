@@ -1,7 +1,7 @@
 CC ?= gcc
 debug ?= no
 
-COMPILER_FLAGS := -std=gnu99 -fpic -Wall
+COMPILER_FLAGS := -std=gnu11 -fpic -Wall
 ifeq ($(debug),yes)
 	COMPILER_FLAGS += -O0 -g -DDEBUG
 else

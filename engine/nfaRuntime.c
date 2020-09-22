@@ -294,8 +294,10 @@ static void maybePlaceRecord(const nfaStateRecord *record, unsigned int state, n
     }
     if ( k == set->length || record->score+1 > set->records[k].score ) {
         set->records[k].startIdx=record->startIdx;
-        set->records[k].endIdx=record->endIdx+1;
-        set->records[k].score=record->score+1;
+        if ( record->state != state ) {
+            set->records[k].endIdx=record->endIdx+1;
+            set->records[k].score=record->score+1;
+        }
 
         if ( k == set->length ) {
             set->records[k].state=state;
