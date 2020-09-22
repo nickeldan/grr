@@ -35,6 +35,7 @@ typedef struct grrOptions {
     bool names_only;
     bool verbose;
     bool ignore_hidden;
+    bool no_history;
     bool colorless;
 } grrOptions;
 
@@ -44,6 +45,7 @@ typedef struct grrSimpleOptions {
     bool ignore_hidden;
 } grrSimpleOptions;
 
+int parseOptions(int argc, char **argv, grrNfa *pattern, grrOptions *options, char *starting_directory);
 void usage(const char *executable);
 int isExecutable(const char *path);
 int compareOptionsToHistory(const grrOptions *options);
@@ -53,124 +55,18 @@ int searchFileForPattern(const char *path, long *line_no, const grrNfa nfa, cons
 int executeEditor(const char *editor, const char *path, long line_no);
 
 int main(int argc, char **argv) {
-    int ret=GRR_RET_OK, optval;
+    int ret;
     long line_no;
-    grrNfa pattern=NULL;
-    grrOptions options={0};
-    char path[GRR_PATH_MAX]="./";
+    grrNfa pattern;
+    grrOptions options;
+    char path[GRR_PATH_MAX];
     char tmp_file[]="./.grrtempXXXXXX";
     DIR *dir;
 
-    if ( argc == 1 ) {
-        usage(argv[0]);
-        return GRR_RET_BAD_DATA;
-    }
-
-    ret=grrCompile(argv[1],strlen(argv[1]),&pattern);
+    ret=parseOptions(argc,argv,&pattern,&options,path);
     if ( ret != GRR_RET_OK ) {
-        fprintf(stderr,"Could not compile pattern.\n");
-        return ret;
+        goto done;
     }
-
-    options.line_no=-1;
-
-    while ( (optval=getopt(argc-1,argv+1,":d:f:e:l:nicv")) != -1 ) {
-        struct stat file_stat;
-        char *temp;
-
-        switch ( optval ) {
-            case 'd':
-            temp=argv[optind];
-            if ( !temp[0] ) {
-                fprintf(stderr,"Starting directory cannot be empty.\n");
-                ret=GRR_RET_BAD_DATA;
-                goto done;
-            }
-            if ( temp[strlen(temp)-1] == '/' ) {
-                ret=snprintf(path,sizeof(path),"%s", temp);
-            }
-            else {
-                ret=snprintf(path,sizeof(path),"%s/", temp);
-            }
-            if ( ret >= sizeof(path) ) {
-                fprintf(stderr,"Starting directory is too long (max. of %zu characters).\n", sizeof(path)-1);
-                ret=GRR_RET_BAD_DATA;
-                goto done;
-            }
-            ret=GRR_RET_OK;
-            if ( stat(path,&file_stat) != 0 ) {
-                perror("Could not stat starting directory");
-                ret=GRR_RET_FILE_ACCESS;
-                goto done;
-            }
-
-            if ( !S_ISDIR(file_stat.st_mode) ) {
-                fprintf(stderr,"%s is not a directory.\n", path);
-                ret=GRR_RET_BAD_DATA;
-                goto done;
-            }
-
-            if ( access(path,X_OK) != 0 ) {
-                perror("Could not access starting directory");
-                ret=GRR_RET_FILE_ACCESS;
-                goto done;
-            }
-            break;
-
-            case 'f':
-            ret=grrCompile(optarg,strlen(optarg),&options.file_pattern);
-            if ( ret != GRR_RET_OK ) {
-                fprintf(stderr,"Could not compile file pattern.\n");
-                goto done;
-            }
-            break;
-
-            case 'e':
-            options.editor=optarg;
-            break;
-
-            case 'l':
-            options.line_no=strtol(optarg,&temp,10);
-            if ( temp == optarg || *temp || options.line_no < 0 || ( options.line_no == LONG_MAX && errno == ERANGE ) ) {
-                fprintf(stderr,"Invalid 'l' option: %s\n", optarg);
-                ret=GRR_RET_BAD_DATA;
-                goto done;
-            }
-            break;
-
-            case 'n':
-            options.names_only=true;
-            break;
-
-            case 'i':
-            options.ignore_hidden=true;
-            break;
-
-            case 'c':
-            options.colorless=true;
-            break;
-
-            case 'v':
-            options.verbose=true;
-            break;
-
-            case '?':
-            fprintf(stderr,"Invalid option: %c\n", optopt);
-            usage(argv[0]);
-            ret=GRR_RET_BAD_DATA;
-            goto done;
-
-            case ':':
-            fprintf(stderr,"-%c requires an argument.\n", optopt);
-            ret=GRR_RET_BAD_DATA;
-            goto done;
-
-            default:
-            abort();
-        }
-    }
-
-    options.starting_directory=path;
 
     if ( options.line_no >= 0 ) {
         if ( !options.editor ) {
@@ -186,12 +82,14 @@ int main(int argc, char **argv) {
             goto done;
         }
 
-        ret=compareOptionsToHistory(&options);
-        if ( ret == GRR_RET_OK ) {
-            goto done;
+        if ( !options.no_history ) {
+            ret=compareOptionsToHistory(&options);
+            if ( ret == GRR_RET_OK ) {
+                goto done;
+            }
         }
     }
-    else {
+    else if ( !options.no_history ) {
         int fd;
         char starting_directory[GRR_PATH_MAX];
 
@@ -294,6 +192,123 @@ int main(int argc, char **argv) {
     }
 
     return ret;
+}
+
+int parseOptions(int argc, char **argv, grrNfa *pattern, grrOptions *options, char *starting_directory) {
+    int ret, optval;
+
+    *pattern=NULL;
+
+    memset(options,0,sizeof(*options));
+    options->line_no=-1;
+    options->starting_directory=starting_directory;
+    sprintf(starting_directory,"./");
+
+    if ( argc == 1 ) {
+        usage(argv[0]);
+        return GRR_RET_BAD_DATA;
+    }
+
+    ret=grrCompile(argv[1],strlen(argv[1]),pattern);
+    if ( ret != GRR_RET_OK ) {
+        fprintf(stderr,"Could not compile pattern.\n");
+        return ret;
+    }
+
+    while ( (optval=getopt(argc-1,argv+1,":d:f:e:l:niycv")) != -1 ) {
+        struct stat file_stat;
+        char *temp;
+
+        switch ( optval ) {
+            case 'd':
+            temp=argv[optind];
+            if ( !temp[0] ) {
+                fprintf(stderr,"Starting directory cannot be empty.\n");
+                return GRR_RET_BAD_DATA;
+            }
+            if ( temp[strlen(temp)-1] == '/' ) {
+                ret=snprintf(starting_directory,sizeof(starting_directory),"%s", temp);
+            }
+            else {
+                ret=snprintf(starting_directory,sizeof(starting_directory),"%s/", temp);
+            }
+            if ( ret >= GRR_PATH_MAX ) {
+                fprintf(stderr,"Starting directory is too long (max. of %i characters).\n", GRR_PATH_MAX-1);
+                return GRR_RET_BAD_DATA;
+            }
+
+            if ( stat(starting_directory,&file_stat) != 0 ) {
+                perror("Could not stat starting directory");
+                return GRR_RET_FILE_ACCESS;
+            }
+
+            if ( !S_ISDIR(file_stat.st_mode) ) {
+                fprintf(stderr,"%s is not a directory.\n", starting_directory);
+                return GRR_RET_BAD_DATA;
+            }
+
+            if ( access(starting_directory,X_OK) != 0 ) {
+                perror("Could not access starting directory");
+                return GRR_RET_FILE_ACCESS;
+            }
+            break;
+
+            case 'f':
+            ret=grrCompile(optarg,strlen(optarg),&options->file_pattern);
+            if ( ret != GRR_RET_OK ) {
+                fprintf(stderr,"Could not compile file pattern.\n");
+                return ret;
+            }
+            break;
+
+            case 'e':
+            options->editor=optarg;
+            break;
+
+            case 'l':
+            errno=0;
+            options->line_no=strtol(optarg,&temp,10);
+            if ( temp == optarg || *temp || options->line_no < 0 || ( options->line_no == LONG_MAX && errno == ERANGE ) ) {
+                fprintf(stderr,"Invalid 'l' option: %s\n", optarg);
+                return GRR_RET_BAD_DATA;
+            }
+            break;
+
+            case 'n':
+            options->names_only=true;
+            break;
+
+            case 'i':
+            options->ignore_hidden=true;
+            break;
+
+            case 'y':
+            options->no_history=true;
+            break;
+
+            case 'c':
+            options->colorless=true;
+            break;
+
+            case 'v':
+            options->verbose=true;
+            break;
+
+            case '?':
+            fprintf(stderr,"Invalid option: %c\n", optopt);
+            usage(argv[0]);
+            return GRR_RET_BAD_DATA;
+
+            case ':':
+            fprintf(stderr,"-%c requires an argument.\n", optopt);
+            return GRR_RET_BAD_DATA;
+
+            default:
+            abort();
+        }
+    }
+
+    return GRR_RET_OK;
 }
 
 void usage(const char *executable) {

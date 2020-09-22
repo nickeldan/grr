@@ -35,10 +35,27 @@ Options:
                          Has no effect if -l is not used.
     -i                   The directory tree search will ignore all hidden files
                          and folders.
+    -y                   Don't read from or write to the history file.  See
+                         "HISTORY FILE" below.
     -c                   Ordinarily, the substring within the file which
                          matched the regex is printed in red.  This option
                          disables that coloration.
     -v                   Prints verbose output to stderr.
+
+=== HISTORY FILE ===
+
+When doing a normal search (i.e., not using the -l option), a history file is
+utilized.  It is created in the $HOME directory and is named .grr_history.  The
+results of the query in addition to its starting directory, regex, and search
+options are written to the file.  If the next invocation of Grr uses the same
+search parameters but includes the -l option, Grr merely uses the results
+stored in the history file in order to fetch the file to be opened.  The
+directory tree is therefore not searched.  The next time Grr is run without the
+-l option, the contents of the history file are overwritten.
+
+You can disable the use of the history file via the -y option.  This is useful
+in the case that the directory tree's contents have changed since the last
+search.
 
 === REGEX GRAMMAR ===
 
