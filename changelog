@@ -1,4 +1,4 @@
-since 1.0.0:
+1.0.1:
     - Restructured grrSearch in such a way that sped up the benchmark test by
       almost 200%
     - Fixed a bug with the * quantifier that was causing endless empty
@@ -6,8 +6,12 @@ since 1.0.0:
     - Fixed a bug where grrMatch and grrSearch weren't properly processing tab
       characters
 
-since 1.0.1:
+2.0.0:
     - The -e option now uses the EDITOR environment variable instead of the
       DEFAULT_EDITOR variable.
     - A history file is now used.  The -y option has been added to disable the
       history file's use.
+	- The search pattern is now specified by the -r option.
+	- Added the -u and -h options.
+	- Fixed a bug in grrSearch where matches were being given the incorrect
+	  length.
