@@ -628,7 +628,7 @@ int searchFileForPattern(const char *path, long *line_no, const grrNfa nfa, cons
     for (size_t fileLineNo=1; fgets(line,sizeof(line),f); fileLineNo++) {
         size_t len, start, end, offset, cursor;
         const char change_color_to_red[]={0x1b,'[','9','1','m'};
-        const char restore_color[]={0x1b,'[','m'};
+        const char restore_color[]={0x1b,'[','0','m'};
 
         len=strlen(line);
         if ( len > 0 && line[len-1] == '\n' ) {
