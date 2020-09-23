@@ -285,19 +285,21 @@ static void determineNextStateRecord(unsigned int depth, grrNfa nfa, unsigned in
 
 static void maybePlaceRecord(const nfaStateRecord *record, unsigned int state, nfaStateSet *set, bool update_score) {
     unsigned int k;
+    size_t newScore;
 
     for (k=0; k<set->length; k++) {
         if ( set->records[k].state == state ) {
             break;
         }
     }
-    if ( k == set->length || record->score+1 > set->records[k].score ) {
+
+    newScore=record->score+(update_score? 1 : 0);
+    if ( k == set->length || newScore > set->records[k].score ) {
         set->records[k].startIdx=record->startIdx;
         set->records[k].endIdx=record->endIdx;
-        set->records[k].score=record->score;
+        set->records[k].score=newScore;
         if ( update_score ) {
             set->records[k].endIdx++;
-            set->records[k].score++;
         }
 
         if ( k == set->length ) {
