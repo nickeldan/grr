@@ -20,7 +20,7 @@ Written by Daniel Walker, 2020.
 #include "engine/nfa.h"
 
 #define GRR_VERSION "2.0.0"
-#define GRR_PATH_MAX 4096
+#define GRR_PATH_MAX 1024
 #define GRR_HISTORY ".grr_history"
 
 #ifndef MIN
@@ -47,7 +47,7 @@ typedef struct grrSimpleOptions {
     bool ignore_hidden;
 } grrSimpleOptions;
 
-int parseOptions(int argc, char **argv, grrOptions *options);
+int parseOptions(int argc, const char **argv, grrOptions *options);
 void usage(const char *executable);
 int isExecutable(const char *path);
 int compareOptionsToHistory(const grrOptions *options);
@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
     long line_no;
     grrOptions options={0};
     char path[GRR_PATH_MAX];
-    char tmp_file[]="./.grrtempXXXXXX";
+    char tmp_file[]="./.grr_tempXXXXXX";
     DIR *dir;
 
     options.starting_directory=path;
@@ -196,7 +196,7 @@ int main(int argc, char **argv) {
     return ret;
 }
 
-int parseOptions(int argc, char **argv, grrOptions *options) {
+int parseOptions(int argc, const char **argv, grrOptions *options) {
     int ret, optval;
 
     options->search_pattern=NULL;
@@ -388,6 +388,10 @@ int compareOptionsToHistory(const grrOptions *options) {
         }
 
         return GRR_RET_OVERFLOW;
+    }
+
+    if ( access(history_file,F_OK) != 0 ) {
+        return GRR_RET_OK;
     }
 
     f=fopen(history_file,"rb");

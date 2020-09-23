@@ -15,3 +15,8 @@
     - Added the -u and -h options.
     - Fixed a bug in grrSearch where matches were being given the incorrect
       length.
+
+:
+    - Changed GRR_PATH_MAX from 4096 to 1024.
+    - Fixed a bug where using the -l option when the history file didn't exist
+      would generate an error.
