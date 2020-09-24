@@ -13,6 +13,7 @@ Written by Daniel Walker, 2020.
 #include <fcntl.h>
 #include <getopt.h>
 #include <dirent.h>
+#include <sys/syslimits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -20,7 +21,6 @@ Written by Daniel Walker, 2020.
 #include "engine/nfa.h"
 
 #define GRR_VERSION "2.0.1"
-#define GRR_PATH_MAX 1024
 #define GRR_HISTORY ".grr_history"
 
 #ifndef MIN
@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
     int ret;
     long line_no;
     grrOptions options={0};
-    char path[GRR_PATH_MAX];
+    char path[PATH_MAX];
     char tmp_file[]="./.grr_tempXXXXXX";
     DIR *dir;
 
@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
     }
     else if ( !options.no_history ) {
         int fd;
-        char starting_directory[GRR_PATH_MAX];
+        char starting_directory[PATH_MAX];
 
         options.editor=NULL;
         fd=mkstemp(tmp_file);
@@ -174,7 +174,7 @@ int main(int argc, char **argv) {
 
             home=getenv("HOME");
             if ( home ) {
-                char new_path[GRR_PATH_MAX];
+                char new_path[PATH_MAX];
 
                 snprintf(new_path,sizeof(new_path),"%s/%s", home, GRR_HISTORY);
                 if ( rename(tmp_file,new_path) != 0 ) {
@@ -228,13 +228,13 @@ int parseOptions(int argc, char **argv, grrOptions *options) {
                 return GRR_RET_BAD_DATA;
             }
             if ( temp[strlen(temp)-1] == '/' ) {
-                ret=snprintf(options->starting_directory,GRR_PATH_MAX,"%s", temp);
+                ret=snprintf(options->starting_directory,PATH_MAX,"%s", temp);
             }
             else {
-                ret=snprintf(options->starting_directory,GRR_PATH_MAX,"%s/", temp);
+                ret=snprintf(options->starting_directory,PATH_MAX,"%s/", temp);
             }
-            if ( ret >= GRR_PATH_MAX ) {
-                fprintf(stderr,"Starting directory is too long (max. of %i characters).\n", GRR_PATH_MAX-1);
+            if ( ret >= PATH_MAX ) {
+                fprintf(stderr,"Starting directory is too long (max. of %i characters).\n", PATH_MAX-1);
                 return GRR_RET_BAD_DATA;
             }
 
@@ -344,7 +344,7 @@ void usage(const char *executable) {
 }
 
 int isExecutable(const char *path) {
-    char line[GRR_PATH_MAX];
+    char line[PATH_MAX];
     FILE *f;
 
     if ( access(path,X_OK) == 0 ) {
@@ -370,7 +370,7 @@ int compareOptionsToHistory(const grrOptions *options) {
     int ret=GRR_RET_BAD_DATA;
     size_t len;
     const char *home;
-    char history_file[50], line[GRR_PATH_MAX+10], absolute_starting_directory[GRR_PATH_MAX];
+    char history_file[50], line[PATH_MAX+10], absolute_starting_directory[PATH_MAX];
     FILE *f;
     grrSimpleOptions observed_options={0};
 
@@ -572,7 +572,7 @@ int searchDirectoryTree(DIR *dir, char *path, long *line_no, const grrOptions *o
 
         path[offset]='\0';
 
-        strncat(path,entry->d_name,GRR_PATH_MAX);
+        strncat(path,entry->d_name,PATH_MAX);
         newLen=strlen(path);
 
         if ( stat(path,&file_stat) != 0 ) {
@@ -597,7 +597,7 @@ int searchDirectoryTree(DIR *dir, char *path, long *line_no, const grrOptions *o
         else if ( S_ISDIR(file_stat.st_mode) ) {
             DIR *subdir;
 
-            if ( newLen+1 == GRR_PATH_MAX ) {
+            if ( newLen+1 == PATH_MAX ) {
                 if ( options->verbose ) {
                     path[offset]='\0';
                     fprintf(stderr,"Skipping subdirectory of %s because its name is too long.\n", path);

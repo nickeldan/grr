@@ -16,7 +16,7 @@ grr: main.o engine/libgrrengine.a
 	$(CC) $^ -o $@
 
 main.o: main.c engine/nfa.h engine/nfaDef.h engine/nfaCompiler.h engine/nfaRuntime.h
-	$(CC) $(COMPILER_FLAGS) $(INCLUDES) -c $<
+	$(CC) $(COMPILER_FLAGS) -c $<
 
 engine/libgrrengine.a: FORCE
 	cd $(dir $@) && make CC=$(CC) debug=$(debug) $(notdir $@)
