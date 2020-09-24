@@ -123,16 +123,6 @@ int main(int argc, char **argv) {
 
         fprintf(options.logger,"%s\n", grrDescription(options.search_pattern));
 
-        fd=open(path,O_RDONLY);
-        if ( fd == -1 ) {
-            if ( options.verbose ) {
-                fprintf(stderr,"Failed to access starting directory: %s\n", strerror(errno));
-            }
-
-            ret=GRR_RET_FILE_ACCESS;
-            goto done;
-        }
-
         realpath(path,starting_directory);
         fprintf(options.logger,"%s\n", starting_directory);
 
