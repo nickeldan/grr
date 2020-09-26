@@ -5,6 +5,17 @@
 
 #include "nfaDef.h"
 
+/*! \fn grrCompile
+    \brief Compiles a string into a regex object.
+    \param string The string to be compiled (does not have to be zero-terminated).
+    \param len The length of the string.
+    \param nfa A pointer to the Grr regex object to be populated.
+    \return GRR_RET_OK if successful and an error code otherwise.
+
+    Possible error codes:
+        - GRR_RET_OUT_OF_MEMORY
+        - GRR_RET_BAD_DATA (the string contained non-printable characters)
+*/
 int grrCompile(const char *string, size_t len, grrNfa *nfa);
 
 #endif // __GRR_COMPILER_H__
