@@ -19,7 +19,7 @@ Written by Daniel Walker, 2020.
 
 #ifdef __linux__
 #include <linux/limits.h>
-#elif defined __APPLE__
+#elif defined(__APPLE__)
 #include <sys/syslimits.h>
 #else
 #error "I don't know where to find PATH_MAX."
@@ -27,7 +27,7 @@ Written by Daniel Walker, 2020.
 
 #include "engine/nfa.h"
 
-#define GRR_VERSION "2.0.1"
+#define GRR_VERSION "2.1.0"
 #define GRR_HISTORY ".grr_history"
 
 #ifndef MIN
@@ -40,6 +40,7 @@ typedef struct grrOptions {
     FILE *logger;
     grrNfa search_pattern;
     grrNfa file_pattern;
+    long depth;
     long line_no;
     bool names_only;
     bool verbose;
@@ -49,6 +50,7 @@ typedef struct grrOptions {
 } grrOptions;
 
 typedef struct grrSimpleOptions {
+    long depth;
     bool file_pattern;
     bool names_only;
     bool ignore_hidden;
@@ -59,7 +61,7 @@ void usage(const char *executable);
 int isExecutable(const char *path);
 int compareOptionsToHistory(const grrOptions *options);
 bool readLine(FILE *f, char *destination, size_t size);
-int searchDirectoryTree(DIR *dir, char *path, long *line_no, const grrOptions *options);
+int searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOptions *options);
 int searchFileForPattern(const char *path, long *line_no, const grrOptions *options);
 int executeEditor(const char *editor, const char *path, long line_no, bool verbose);
 
@@ -146,10 +148,17 @@ int main(int argc, char **argv) {
         if ( options.ignore_hidden ) {
             fprintf(options.logger,"i");
         }
+        if ( options.depth != -1 ) {
+            fprintf(options.logger,"p");
+        }
         fprintf(options.logger,"\n");
 
         if ( options.file_pattern ) {
             fprintf(options.logger,"%s\n", grrDescription(options.file_pattern));
+        }
+
+        if ( options.depth != -1 ) {
+            fprintf(options.logger,"%li\n", options.depth);
         }
     }
 
@@ -160,7 +169,7 @@ int main(int argc, char **argv) {
         goto done;
     }
     line_no=-1;
-    searchDirectoryTree(dir,path,&line_no,&options);
+    searchDirectoryTree(dir,path,-1,&line_no,&options);
     closedir(dir);
 
     done:
@@ -201,6 +210,7 @@ int parseOptions(int argc, char **argv, grrOptions *options) {
     int ret, optval;
 
     options->search_pattern=NULL;
+    options->depth=-1;
     options->line_no=-1;
     sprintf(options->starting_directory,"./");
 
@@ -209,7 +219,7 @@ int parseOptions(int argc, char **argv, grrOptions *options) {
         return GRR_RET_BAD_DATA;
     }
 
-    while ( (optval=getopt(argc,argv,":r:d:f:e:l:niycvuh")) != -1 ) {
+    while ( (optval=getopt(argc,argv,":r:d:p:f:e:l:niycvuh")) != -1 ) {
         struct stat file_stat;
         char *temp;
 
@@ -255,6 +265,15 @@ int parseOptions(int argc, char **argv, grrOptions *options) {
             }
             break;
 
+            case 'p':
+            errno=0;
+            options->depth=strtol(optarg,&temp,10);
+            if ( errno != 0 || temp == optarg || temp[0] != '\0' ) {
+                fprintf(stderr,"Invalid 'p' option: %s\n", optarg);
+                return GRR_RET_BAD_DATA;
+            }
+            break;
+
             case 'f':
             ret=grrCompile(optarg,strlen(optarg),&options->file_pattern);
             if ( ret != GRR_RET_OK ) {
@@ -270,7 +289,7 @@ int parseOptions(int argc, char **argv, grrOptions *options) {
             case 'l':
             errno=0;
             options->line_no=strtol(optarg,&temp,10);
-            if ( temp == optarg || *temp || options->line_no < 0 || ( options->line_no == LONG_MAX && errno == ERANGE ) ) {
+            if ( errno != 0 || temp == optarg || temp[0] != '\0' ) {
                 fprintf(stderr,"Invalid 'l' option: %s\n", optarg);
                 return GRR_RET_BAD_DATA;
             }
@@ -331,6 +350,9 @@ void usage(const char *executable) {
     printf("Usage: %s [options]\n", executable);
     printf("Options:\n");
     printf("\t-r <pattern>        -- Specify the search regex.  Required unless either -u or -h are specified.\n");
+    printf("\t-d <directory>      -- Specify the staring directory.  Defaults to the current directory.\n");
+    printf("\t-p <depth>          -- Specify the directory search maximum depth.  Defaults to infinite.  A\n");
+    printf("\t                       value of 0 means that only the starting directory is searched.\n");
     printf("\t-f <file-pattern>   -- Only examine files whose names (excluding the directory) match this regex.\n");
     printf("\t-e <editor>         -- When used in conjunction with -l, specifies the editor for opening files.\n");
     printf("\t                       Defaults to the EDITOR environment variable or vi/vim if that is unset.\n");
@@ -346,7 +368,7 @@ void usage(const char *executable) {
 
 int isExecutable(const char *path) {
     int ret;
-    char line[PATH_MAX];
+    char line[PATH_MAX+6];
     FILE *f;
 
     if ( access(path,X_OK) == 0 ) {
@@ -379,7 +401,7 @@ int compareOptionsToHistory(const grrOptions *options) {
     const char *home;
     char history_file[50], line[PATH_MAX+10], absolute_starting_directory[PATH_MAX];
     FILE *f;
-    grrSimpleOptions observed_options={0};
+    grrSimpleOptions observed_options={.depth=-1};
 
     home=getenv("HOME");
     if ( !home ) {
@@ -453,6 +475,10 @@ int compareOptionsToHistory(const grrOptions *options) {
             observed_options.ignore_hidden=true;
             break;
 
+            case 'p':
+            observed_options.depth=0;
+            break;
+
             default:
             if ( options->verbose ) {
                 fprintf(stderr,"Skipping unsupported option: '%c'\n", line[k]);
@@ -485,6 +511,31 @@ int compareOptionsToHistory(const grrOptions *options) {
         goto done;
     }
 
+    if ( observed_options.depth != -1 ) {
+        char *temp;
+
+        if ( options->depth == -1 ) {
+            goto done;
+        }
+
+        if ( !readLine(f,line,sizeof(line)) ) {
+            goto failed_read;
+        }
+
+        errno=0;
+        observed_options.depth=strtol(line,&temp,10);
+        if ( errno != 0 || temp == line || temp[0] != '\0' ) {
+            if ( options->verbose ) {
+                fprintf(stderr,"Invalid depth (%s) found in %s.\n", line, history_file);
+            }
+            goto done;
+        }
+
+        if ( observed_options.depth != options->depth ) {
+            goto done;
+        }
+    }
+
     for (long k=0; k<=options->line_no; k++) {
         if ( !readLine(f,line,sizeof(line)) ) {
             goto failed_read;
@@ -503,7 +554,6 @@ int compareOptionsToHistory(const grrOptions *options) {
             if ( options->verbose ) {
                 fprintf(stderr,"No ':' found for result '%s' in %s.\n", line, history_file);
             }
-
             goto done;
         }
 
@@ -559,7 +609,7 @@ bool readLine(FILE *f, char *destination, size_t size) {
     return true;
 }
 
-int searchDirectoryTree(DIR *dir, char *path, long *line_no, const grrOptions *options) {
+int searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOptions *options) {
     int ret=GRR_RET_OK;
     size_t offset, newLen;
     struct dirent *entry;
@@ -582,18 +632,16 @@ int searchDirectoryTree(DIR *dir, char *path, long *line_no, const grrOptions *o
         strncat(path,entry->d_name,PATH_MAX);
         newLen=strlen(path);
 
-        if ( stat(path,&file_stat) != 0 ) {
+        if ( lstat(path,&file_stat) != 0 ) {
             if ( options->verbose ) {
-                fprintf(stderr,"Could not stat %s: %s\n", path, strerror(errno));
+                fprintf(stderr,"Could not lstat %s: %s\n", path, strerror(errno));
             }
             continue;
         }
 
         if ( S_ISREG(file_stat.st_mode) ) {
-            if ( options->file_pattern ) {
-                if ( grrSearch(options->file_pattern,entry->d_name,strlen(entry->d_name),NULL,NULL,NULL,0) != GRR_RET_OK ) {
-                    continue;
-                }
+            if ( options->file_pattern && grrSearch(options->file_pattern,entry->d_name,strlen(entry->d_name),NULL,NULL,NULL,false) != GRR_RET_OK ) {
+                continue;
             }
 
             if ( searchFileForPattern(path,line_no,options) == GRR_RET_DONE ) {
@@ -603,6 +651,10 @@ int searchDirectoryTree(DIR *dir, char *path, long *line_no, const grrOptions *o
         }
         else if ( S_ISDIR(file_stat.st_mode) ) {
             DIR *subdir;
+
+            if ( depth+1 == options->depth ) {
+                continue;
+            }
 
             if ( newLen+1 == PATH_MAX ) {
                 if ( options->verbose ) {
@@ -623,7 +675,7 @@ int searchDirectoryTree(DIR *dir, char *path, long *line_no, const grrOptions *o
                 continue;
             }
 
-            ret=searchDirectoryTree(subdir,path,line_no,options);
+            ret=searchDirectoryTree(subdir,path,depth+1,line_no,options);
             closedir(subdir);
             if ( ret == GRR_RET_DONE ) {
                 goto done;
@@ -672,7 +724,7 @@ int searchFileForPattern(const char *path, long *line_no, const grrOptions *opti
         ret=grrSearch(options->search_pattern,line,len,&start,&end,&cursor,false);
         if ( ret == GRR_RET_BAD_DATA ) {
             if ( options->verbose ) {
-                fprintf(stderr,"Terminating processing of %s since it contains non-printable data on line %zu, column %zu.\n", path, file_line_no, cursor+1);
+                fprintf(stderr,"Terminating processing of %s since it contains non-printable data on line %zu, column %zu.\n", path, file_line_no, cursor);
             }
             break;
         }
