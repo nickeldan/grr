@@ -1,0 +1,64 @@
+\hypertarget{nfa_8h}{}\doxysection{nfa.\+h File Reference}
+\label{nfa_8h}\index{nfa.h@{nfa.h}}
+
+
+Grr interface portal.  
+
+
+{\ttfamily \#include \char`\"{}nfa\+Def.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}nfa\+Compiler.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}nfa\+Runtime.\+h\char`\"{}}\newline
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+void \mbox{\hyperlink{nfa_8h_aafe0416b157779d8b9cfa247a507a4c8}{grr\+Free\+Nfa}} (\mbox{\hyperlink{nfaDef_8h_a8dc2a3a897ffdcfa126a67035ce05079}{grr\+Nfa}} nfa)
+\begin{DoxyCompactList}\small\item\em Frees a regex object. \end{DoxyCompactList}\item 
+const char $\ast$ \mbox{\hyperlink{nfa_8h_a5eedf258c592ba2c02c45d0c967e7649}{grr\+Description}} (const \mbox{\hyperlink{nfaDef_8h_a8dc2a3a897ffdcfa126a67035ce05079}{grr\+Nfa}} nfa)
+\begin{DoxyCompactList}\small\item\em Returns the string that created the regex object. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Grr interface portal. 
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{nfa_8h_a5eedf258c592ba2c02c45d0c967e7649}\label{nfa_8h_a5eedf258c592ba2c02c45d0c967e7649}} 
+\index{nfa.h@{nfa.h}!grrDescription@{grrDescription}}
+\index{grrDescription@{grrDescription}!nfa.h@{nfa.h}}
+\doxysubsubsection{\texorpdfstring{grrDescription()}{grrDescription()}}
+{\footnotesize\ttfamily const char$\ast$ grr\+Description (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{nfaDef_8h_a8dc2a3a897ffdcfa126a67035ce05079}{grr\+Nfa}}}]{nfa }\end{DoxyParamCaption})}
+
+
+
+Returns the string that created the regex object. 
+
+\begin{DoxyNote}{Note}
+The const modifier of the returned string is to forbid the user from either altering or freeing the string since it is inherent to the regex object.
+\end{DoxyNote}
+
+\begin{DoxyParams}{Parameters}
+{\em nfa} & A Grr regex object. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+The string which created the regex object. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{nfa_8h_aafe0416b157779d8b9cfa247a507a4c8}\label{nfa_8h_aafe0416b157779d8b9cfa247a507a4c8}} 
+\index{nfa.h@{nfa.h}!grrFreeNfa@{grrFreeNfa}}
+\index{grrFreeNfa@{grrFreeNfa}!nfa.h@{nfa.h}}
+\doxysubsubsection{\texorpdfstring{grrFreeNfa()}{grrFreeNfa()}}
+{\footnotesize\ttfamily void grr\+Free\+Nfa (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{nfaDef_8h_a8dc2a3a897ffdcfa126a67035ce05079}{grr\+Nfa}}}]{nfa }\end{DoxyParamCaption})}
+
+
+
+Frees a regex object. 
+
+\begin{DoxyNote}{Note}
+Returns immediately if nfa is NULL
+\end{DoxyNote}
+
+\begin{DoxyParams}{Parameters}
+{\em nfa} & A Grr regex object. \\
+\hline
+\end{DoxyParams}

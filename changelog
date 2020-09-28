@@ -17,6 +17,6 @@
       length.
 
 :
-    - Replaced GRR_PATH_MAX with PATH_MAX from sys/syslimits.h
+    - Replaced GRR_PATH_MAX with PATH_MAX.
     - Fixed a bug where using the -l option when the history file didn't exist
       would generate an error.

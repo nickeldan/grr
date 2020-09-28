@@ -13,10 +13,17 @@ Written by Daniel Walker, 2020.
 #include <fcntl.h>
 #include <getopt.h>
 #include <dirent.h>
-#include <sys/syslimits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+
+#ifdef __linux__
+#include <linux/limits.h>
+#elif defined __APPLE__
+#include <sys/syslimits.h>
+#else
+#error "I don't know where to find PATH_MAX."
+#endif
 
 #include "engine/nfa.h"
 
@@ -123,7 +130,11 @@ int main(int argc, char **argv) {
 
         fprintf(options.logger,"%s\n", grrDescription(options.search_pattern));
 
-        realpath(path,starting_directory);
+        if ( !realpath(path,starting_directory) ) {
+            perror("realpath");
+            ret=GRR_RET_OTHER;
+            goto done;
+        }
         fprintf(options.logger,"%s\n", starting_directory);
 
         if ( options.file_pattern ) {
@@ -334,6 +345,7 @@ void usage(const char *executable) {
 }
 
 int isExecutable(const char *path) {
+    int ret;
     char line[PATH_MAX];
     FILE *f;
 
@@ -350,10 +362,15 @@ int isExecutable(const char *path) {
         return GRR_RET_OUT_OF_MEMORY;
     }
 
-    fgets(line,sizeof(line),f);
+    if ( fgets(line,sizeof(line),f) ) {
+        ret=line[0]? GRR_RET_OK : GRR_RET_NOT_FOUND;
+    }
+    else {
+        ret=GRR_RET_FILE_ACCESS;
+    }
     pclose(f);
 
-    return line[0]? GRR_RET_OK : GRR_RET_NOT_FOUND;
+    return ret;
 }
 
 int compareOptionsToHistory(const grrOptions *options) {

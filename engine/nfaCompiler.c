@@ -398,11 +398,7 @@ int grrCompile(const char *string, size_t len, grrNfa *nfa) {
 }
 
 static void printIdxForString(const char *string, size_t len, size_t idx) {
-    char tab='\t';
-
-    write(STDERR_FILENO,&tab,1);
-    write(STDERR_FILENO,string,len);
-    fprintf(stderr,"\n\t");
+    fprintf(stderr,"\t%.*s\n\t", (int)len, string);
     for (size_t k=0; k<idx; k++) {
         fprintf(stderr," ");
     }

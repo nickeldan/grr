@@ -1,0 +1,79 @@
+\hypertarget{nfaRuntime_8h}{}\doxysection{nfa\+Runtime.\+h File Reference}
+\label{nfaRuntime_8h}\index{nfaRuntime.h@{nfaRuntime.h}}
+
+
+Regex-\/matching functions.  
+
+
+{\ttfamily \#include $<$stdbool.\+h$>$}\newline
+{\ttfamily \#include $<$sys/types.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}nfa\+Def.\+h\char`\"{}}\newline
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+int \mbox{\hyperlink{nfaRuntime_8h_a17c42a4f6b487298bd860525722bed87}{grr\+Match}} (const \mbox{\hyperlink{nfaDef_8h_a8dc2a3a897ffdcfa126a67035ce05079}{grr\+Nfa}} nfa, const char $\ast$string, size\+\_\+t len)
+\begin{DoxyCompactList}\small\item\em Determines if the entire string matches the regex. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{nfaRuntime_8h_a0f6eea4fe292259b6f1c9be58178c3fa}{grr\+Search}} (const \mbox{\hyperlink{nfaDef_8h_a8dc2a3a897ffdcfa126a67035ce05079}{grr\+Nfa}} nfa, const char $\ast$string, size\+\_\+t len, size\+\_\+t $\ast$start, size\+\_\+t $\ast$end, size\+\_\+t $\ast$cursor, bool tolerate\+Nonprintables)
+\begin{DoxyCompactList}\small\item\em Determines if a string contains a substring which matches the regex. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Regex-\/matching functions. 
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{nfaRuntime_8h_a17c42a4f6b487298bd860525722bed87}\label{nfaRuntime_8h_a17c42a4f6b487298bd860525722bed87}} 
+\index{nfaRuntime.h@{nfaRuntime.h}!grrMatch@{grrMatch}}
+\index{grrMatch@{grrMatch}!nfaRuntime.h@{nfaRuntime.h}}
+\doxysubsubsection{\texorpdfstring{grrMatch()}{grrMatch()}}
+{\footnotesize\ttfamily int grr\+Match (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{nfaDef_8h_a8dc2a3a897ffdcfa126a67035ce05079}{grr\+Nfa}}}]{nfa,  }\item[{const char $\ast$}]{string,  }\item[{size\+\_\+t}]{len }\end{DoxyParamCaption})}
+
+
+
+Determines if the entire string matches the regex. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em nfa} & The Grr regex object. \\
+\hline
+{\em string} & The string (does not have to be null-\/terminated). \\
+\hline
+{\em len} & The length of the string. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+GRR\+\_\+\+RET\+\_\+\+OK if the string matched the regex. GRR\+\_\+\+RET\+\_\+\+OUT\+\_\+\+MEMORY if a memory allocation failed. GRR\+\_\+\+RET\+\_\+\+BAD\+\_\+\+DATA if the string contained a non-\/printable character. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{nfaRuntime_8h_a0f6eea4fe292259b6f1c9be58178c3fa}\label{nfaRuntime_8h_a0f6eea4fe292259b6f1c9be58178c3fa}} 
+\index{nfaRuntime.h@{nfaRuntime.h}!grrSearch@{grrSearch}}
+\index{grrSearch@{grrSearch}!nfaRuntime.h@{nfaRuntime.h}}
+\doxysubsubsection{\texorpdfstring{grrSearch()}{grrSearch()}}
+{\footnotesize\ttfamily int grr\+Search (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{nfaDef_8h_a8dc2a3a897ffdcfa126a67035ce05079}{grr\+Nfa}}}]{nfa,  }\item[{const char $\ast$}]{string,  }\item[{size\+\_\+t}]{len,  }\item[{size\+\_\+t $\ast$}]{start,  }\item[{size\+\_\+t $\ast$}]{end,  }\item[{size\+\_\+t $\ast$}]{cursor,  }\item[{bool}]{tolerate\+Nonprintables }\end{DoxyParamCaption})}
+
+
+
+Determines if a string contains a substring which matches the regex. 
+
+The function will stop processing characters when either it exhausts the specified length, a newline is encountered, or a non-\/printable character is encountered with tolerate\+Nonprintables set to false. If tolerate\+Nonprintables is true, then the function will skip over such characters and treat them as beginning and end of lines. For example, if the regex is \char`\"{}$^\wedge$a+\char`\"{} and the string is \char`\"{}aa\textbackslash{}x00aaad\char`\"{}, then both sequence of \char`\"{}a\char`\"{}\textquotesingle{}s will be considered matches. However, they will be considered separate matches and so $\ast$end-\/$\ast$start will be 3.
+
+
+\begin{DoxyParams}{Parameters}
+{\em nfa} & The Grr regex object. \\
+\hline
+{\em string} & The string (does not have to be null-\/terminated). \\
+\hline
+{\em len} & The length of the string. \\
+\hline
+{\em start} & A pointer which will, if not NULL, point to the index of the beginning of the longest match if one was found. \\
+\hline
+{\em end} & A pointer which will, if not NULL, point to the index of the character after the end of the longest match if one was found. \\
+\hline
+{\em cursor} & A pointer which will, if not NULL, point to the index of the character where the function stopped searching. \\
+\hline
+{\em tolerate\+Nonprintables} & Indicates whether or not the function should exit upon encountering a non-\/printable character. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+GRR\+\_\+\+RET\+\_\+\+OK if a substring match was found. GRR\+\_\+\+RET\+\_\+\+NOT\+\_\+\+FOUND if no substring match was found. GRR\+\_\+\+RET\+\_\+\+BAD\+\_\+\+DATA if the string contained a non-\/printable character and tolerate\+Nonprintables was set to false. 
+\end{DoxyReturn}
