@@ -21,8 +21,8 @@ Options:
     -d <directory>       Specifies the starting directory.  Defaults to the
                          present working directory.
     -p <depth>           Specify the directory search maximum depth.  Defaults
-                         to infinite.  A value of 0 means that only the
-                         starting directory is searched.
+                         to infinite.  A value of 0, for example, means that
+                         only the starting directory is searched.
     -f <regex>           Specifies a regex for matching against the file names
                          which are searched.  Only files which contain a
                          substring which matches the regex will be searched.

@@ -1,10 +1,9 @@
-1.0.1:
-    - Restructured grrSearch in such a way that sped up the benchmark test by
-      almost 200%
-    - Fixed a bug with the * quantifier that was causing endless empty
-      transition loops
-    - Fixed a bug where grrMatch and grrSearch weren't properly processing tab
-      characters
+2.1.0:
+    - Replaced GRR_PATH_MAX with PATH_MAX.
+    - Fixed a bug where using the -l option when the history file didn't exist
+      would generate an error.
+    - Added the -p option.
+    - Symbolic links are no longer followed.
 
 2.0.0:
     - The -e option now uses the EDITOR environment variable instead of the
@@ -16,9 +15,10 @@
     - Fixed a bug in grrSearch where matches were being given the incorrect
       length.
 
-2.1.0:
-    - Replaced GRR_PATH_MAX with PATH_MAX.
-    - Fixed a bug where using the -l option when the history file didn't exist
-      would generate an error.
-    - Added the -p option.
-    - Symbolic links are no longer followed.
+1.0.1:
+    - Restructured grrSearch in such a way that sped up the benchmark test by
+      almost 200%
+    - Fixed a bug with the * quantifier that was causing endless empty
+      transition loops
+    - Fixed a bug where grrMatch and grrSearch weren't properly processing tab
+      characters
