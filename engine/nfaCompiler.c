@@ -371,9 +371,9 @@ int grrCompile(const char *string, size_t len, grrNfa *nfa) {
     }
     free(stack.frames);
 
-    current->current.records=calloc(current->length+1,sizeof(nfaStateRecord));
-    current->next.records=calloc(current->length+1,sizeof(nfaStateRecord));
-    if ( !current->current.records || !current->next.records ) {
+    current->current.s_records=calloc(current->length+1,sizeof(nfaStateRecord));
+    current->next.s_records=calloc(current->length+1,sizeof(nfaStateRecord));
+    if ( !current->current.s_records || !current->next.s_records ) {
         ret=GRR_RET_OUT_OF_MEMORY;
         goto error;
     }

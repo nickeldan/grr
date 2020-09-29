@@ -18,7 +18,6 @@
  *  \param len      The length of the string.
  *  \param nfa      A pointer to the Grr regex object to be populated.
  *  \return         GRR_RET_OK if successful.
- *                  GRR_RET_OUT_OF_MEMORY if a memory allocation failed.
  *                  GRR_RET_BAD_DATA if the string contained non-printable
  *                  characters.
  */

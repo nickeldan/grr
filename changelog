@@ -1,3 +1,8 @@
+:
+    - Fixed a bug where the temporary history file wasn't getting unlinked if
+      Grr failed.
+    - grrMatch can no longer return GRR_RET_OUT_OF_MEMORY.
+
 2.1.0:
     - Replaced GRR_PATH_MAX with PATH_MAX.
     - Fixed a bug where using the -l option when the history file didn't exist

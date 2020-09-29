@@ -201,6 +201,9 @@ int main(int argc, char **argv) {
                 unlink(tmp_file);
             }
         }
+        else {
+            unlink(tmp_file);
+        }
     }
 
     return ret;

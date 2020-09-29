@@ -39,9 +39,14 @@ typedef struct nfaStateRecord {
 } nfaStateRecord;
 
 typedef struct nfaStateSet {
-    nfaStateRecord *records;
+    union {
+        nfaStateRecord *records;
+        unsigned char *flags;
+    } set;
     unsigned int length;
 } nfaStateSet;
+#define s_records set.records
+#define s_flags set.flags
 
 struct grrNfaStruct {
     nfaNode *nodes;

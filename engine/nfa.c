@@ -8,8 +8,8 @@ void grrFreeNfa(grrNfa nfa) {
     }
 
     free(nfa->nodes);
-    free(nfa->current.records);
-    free(nfa->next.records);
+    free(nfa->current.s_records);
+    free(nfa->next.s_records);
     free(nfa->string);
     free(nfa);
 }
