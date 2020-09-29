@@ -17,8 +17,8 @@
 
 1.0.1:
     - Restructured grrSearch in such a way that sped up the benchmark test by
-      almost 200%
+      almost 200%.
     - Fixed a bug with the * quantifier that was causing endless empty
-      transition loops
+      transition loops.
     - Fixed a bug where grrMatch and grrSearch weren't properly processing tab
-      characters
+      characters.

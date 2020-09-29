@@ -22,7 +22,7 @@ Options:
                          present working directory.
     -p <depth>           Specify the directory search maximum depth.  Defaults
                          to infinite.  A value of 0, for example, means that
-                         only the starting directory is searched.
+                         only the starting directory will be searched.
     -f <regex>           Specifies a regex for matching against the file names
                          which are searched.  Only files which contain a
                          substring which matches the regex will be searched.
@@ -31,7 +31,7 @@ Options:
     -l <result-number>   Instead of printing the results to the screen, the
                          file denoted by the specified result number will be
                          opened in an editor.  The editor used can be set via
-                         the EDITOR environment variable or by using the -f
+                         the EDITOR environment variable or by using the -e
                          option.  If neither are set, vi/m will be used. In the
                          case that vi/m is used, the file will be opened to the
                          line containing the match (or the first line if the -n
