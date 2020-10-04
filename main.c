@@ -99,6 +99,8 @@ int main(int argc, char **argv) {
 
         if ( !options.no_history ) {
             ret=compareOptionsToHistory(&options);
+            // This check is not a typo.  If ret is GRR_RET_OK, that means we can use the history file and
+            // therefore can skip past the directory search logic.
             if ( ret == GRR_RET_OK ) {
                 goto done;
             }
