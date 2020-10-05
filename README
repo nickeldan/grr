@@ -49,5 +49,4 @@ tree's contents have changed since the last search.
 
 === REGEX GRAMMAR ===
 
-See the README for GrrEngine (https://github.com/nickeldan/grrengine/README) for a description of the regex
-grammar.
+See the README for GrrEngine (https://github.com/nickeldan/grrengine) for a description of the regex grammar.
