@@ -1,68 +1,51 @@
 Grr was written by Daniel Walker.
 Version 2.1.0 was released on September 28, 2020.
 
-Grr takes a regex and searches a directory tree for files containing strings
-which match that regex.  All lines which contain a match are printed to the
-screen in the following format:
+Grr takes a regex and searches a directory tree for files containing strings which match that regex.  All
+lines which contain a match are printed to the screen in the following format:
 
 (5) some/directory/file.txt (line 97) : ... k19jIMATCHTHEREGEXkjljlk ...
 
-The "(5)" is a result number.  The first result printed will be numbered 0,
-then 1, and so on.  The purpose of this numbering system will be explained
-below under the "-l" option description.
+The "(5)" is a result number.  The first result printed will be numbered 0, then 1, and so on.  The purpose
+of this numbering system will be explained below under the "-l" option description.
 
 === USAGE ===
 
 grr [options]
 
 Options:
-    -r <regex>           Specifies the search regex.  Required unless either -u
-                         or -h is used.
-    -d <directory>       Specifies the starting directory.  Defaults to the
-                         present working directory.
-    -p <depth>           Specify the directory search maximum depth.  Defaults
-                         to infinite.  A value of 0, for example, means that
-                         only the starting directory will be searched.
-    -f <regex>           Specifies a regex for matching against the file names
-                         which are searched.  Only files which contain a
-                         substring which matches the regex will be searched.
-    -n                   Only print the names of the files which contain
-                         matches.
-    -l <result-number>   Instead of printing the results to the screen, the
-                         file denoted by the specified result number will be
-                         opened in an editor.  The editor used can be set via
-                         the EDITOR environment variable or by using the -e
-                         option.  If neither are set, vi/m will be used. In the
-                         case that vi/m is used, the file will be opened to the
-                         line containing the match (or the first line if the -n
-                         option was used).
-    -e <editor>          Specifies the editor to be used with the -l option.
-                         Has no effect if -l is not used.
-    -i                   The directory tree search will ignore all hidden files
-                         and folders.
-    -y                   Neither read from nor write to the history file.  See
-                         "HISTORY FILE" below.
-    -c                   Ordinarily, the substring within the file which
-                         matched the regex is printed in red.  This option
-                         disables that coloration.
-    -v                   Prints verbose output to stderr.
-    -u                   Prints Grr's version.
-    -h                   Prints the usage information.
+    -r <regex>          Specifies the search regex.  Required unless either -u or -h is used.
+    -d <directory>      Specifies the starting directory.  Defaults to the present working directory.
+    -p <depth>          Specify the directory search maximum depth.  Defaults to infinite.  A value of 0,
+                        for example, means that only the starting directory will be searched.
+    -f <regex>          Specifies a regex for matching against the file names which are searched.  Only
+                        files which contain a substring which matches the regex will be searched.
+    -n                  Only print the names of the files which contain matches.
+    -l <result-number>  Instead of printing the results to the screen, the file denoted by the specified
+                        result number will be opened in an editor.  The editor used can be set via the EDITOR
+                        environment variable or by using the -e option.  If neither are set, vi/m will be
+                        used. In the case that vi/m is used, the file will be opened to the line containing
+                        the match (or the first line if the -n option was used).
+    -e <editor>         Specifies the editor to be used with the -l option.  Has no effect if -l is not used.
+    -i                  The directory tree search will ignore all hidden files and folders.
+    -y                  Neither read from nor write to the history file.  See "HISTORY FILE" below.
+    -c                  Ordinarily, the substring within the file which matched the regex is printed in red.
+                        This option disables that coloration.
+    -v                  Prints verbose output to stderr.
+    -u                  Prints Grr's version.
+    -h                  Prints the usage information.
 
 === HISTORY FILE ===
 
-When doing a normal search (i.e., not using the -l option), a history file
-named .grr_history is created in the $HOME directory.  The results of the query
-in addition to its starting directory, regex, and search options are written to
-the file.  If the next invocation of Grr uses the same search parameters but
-includes the -l option, Grr merely uses the results stored in the history file
-in order to fetch the file to be opened.  The directory tree is therefore not
-searched.  The next time Grr is run without the -l option, the contents of the
-history file will be overwritten.
+When doing a normal search (i.e., not using the -l option), a history file named .grr_history is created in
+the $HOME directory.  The results of the query in addition to its starting directory, regex, and search
+options are written to the file.  If the next invocation of Grr uses the same search parameters but includes
+the -l option, Grr merely uses the results stored in the history file in order to fetch the file to be
+opened.  The directory tree is therefore not searched.  The next time Grr is run without the -l option, the
+contents of the history file will be overwritten.
 
-You can disable the use of the history file via the -y option.  This is useful
-in the case that the directory tree's contents have changed since the last
-search.
+You can disable the use of the history file via the -y option.  This is useful in the case that the directory
+tree's contents have changed since the last search.
 
 === REGEX GRAMMAR ===
 
