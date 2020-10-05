@@ -66,10 +66,5 @@ search.
 
 === REGEX GRAMMAR ===
 
-The only special character classes implemented are \d (digits) and \s (spaces
-and tabs).
-
-Grr's regex engine does not support group capturing and so all text within
-parentheses are considered a non-capturing group.
-
-Braces (i.e., { and }) can only be used to specify an exact quantity.
+See the README for GrrEngine (https://github.com/nickeldan/grrengine/README) for a description of the regex
+grammar.
