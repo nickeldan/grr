@@ -1,30 +1,22 @@
-:
-    - Fixed a bug where the temporary history file wasn't getting unlinked if
-      Grr failed.
-    - grrMatch can no longer return GRR_RET_OUT_OF_MEMORY.
-    - grrMatch now ignores the ^ and $ regex special characters.
+2.2.0:
+    - Fixed a bug where the temporary history file wasn't getting unlinked if Grr failed.
+    - The Grr engine is now a separate repository.  Grr uses GrrEngine 2.0.0 which includes a slight
+      performance increase.
 
 2.1.0:
     - Replaced GRR_PATH_MAX with PATH_MAX.
-    - Fixed a bug where using the -l option when the history file didn't exist
-      would generate an error.
+    - Fixed a bug where using the -l option when the history file didn't exist would generate an error.
     - Added the -p option.
     - Symbolic links are no longer followed.
 
 2.0.0:
-    - The -e option now uses the EDITOR environment variable instead of the
-      DEFAULT_EDITOR variable.
-    - A history file is now used.  The -y option has been added to disable the
-      history file's use.
+    - The -e option now uses the EDITOR environment variable instead of the DEFAULT_EDITOR variable.
+    - A history file is now used.  The -y option has been added to disable the history file's use.
     - The search pattern is now specified by the -r option.
     - Added the -u and -h options.
-    - Fixed a bug in grrSearch where matches were being given the incorrect
-      length.
+    - Fixed a bug in grrSearch where matches were being given the incorrect length.
 
 1.0.1:
-    - Restructured grrSearch in such a way that sped up the benchmark test by
-      almost 200%.
-    - Fixed a bug with the * quantifier that was causing endless empty
-      transition loops.
-    - Fixed a bug where grrMatch and grrSearch weren't properly processing tab
-      characters.
+    - Restructured grrSearch in such a way that sped up the benchmark test by almost 200%.
+    - Fixed a bug with the * quantifier that was causing endless empty transition loops.
+    - Fixed a bug where grrMatch and grrSearch weren't properly processing tab characters.

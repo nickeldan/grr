@@ -25,7 +25,7 @@ Written by Daniel Walker, 2020.
 #error "I don't know where to find PATH_MAX."
 #endif
 
-#include "engine/nfa.h"
+#include "engine/include/nfa.h"
 
 #define GRR_VERSION "2.1.0"
 #define GRR_HISTORY ".grr_history"
@@ -33,6 +33,18 @@ Written by Daniel Walker, 2020.
 #ifndef MIN
 #define MIN(a,b) ( ( (a) < (b) )? (a) : (b) )
 #endif
+
+enum grrAppRetValue {
+    GRR_APP_RET_OK = 0,
+    GRR_APP_RET_BREAK_RECURSION,
+    GRR_APP_RET_FILE_ACCESS,
+    GRR_APP_RET_NOT_FOUND,
+    GRR_APP_RET_OUT_OF_MEMORY,
+    GRR_APP_RET_BAD_DATA,
+    GRR_APP_RET_OVERFLOW,
+    GRR_APP_RET_EXEC,
+    GRR_APP_RET_OTHER,
+};
 
 typedef struct grrOptions {
     char *starting_directory;
@@ -76,9 +88,9 @@ int main(int argc, char **argv) {
     options.starting_directory=path;
 
     ret=parseOptions(argc,argv,&options);
-    if ( ret != GRR_RET_OK ) {
-        if ( ret == GRR_RET_DONE ) {
-            ret=GRR_RET_OK;
+    if ( ret != GRR_APP_RET_OK ) {
+        if ( ret == GRR_APP_RET_BREAK_RECURSION ) {
+            ret=GRR_APP_RET_OK;
         }
         goto done;
     }
@@ -87,21 +99,21 @@ int main(int argc, char **argv) {
         if ( !options.editor ) {
             options.editor=getenv("EDITOR");
             if ( !options.editor ) {
-                options.editor=( isExecutable("vim") == GRR_RET_OK )? "vim" : "vi";
+                options.editor=( isExecutable("vim") == GRR_APP_RET_OK )? "vim" : "vi";
             }
         }
 
         ret=isExecutable(options.editor);
-        if ( ret != GRR_RET_OK ) {
+        if ( ret != GRR_APP_RET_OK ) {
             fprintf(stderr,"Cannot execute %s.\n", options.editor);
             goto done;
         }
 
         if ( !options.no_history ) {
             ret=compareOptionsToHistory(&options);
-            // This check is not a typo.  If ret is GRR_RET_OK, that means we can use the history file and
+            // This check is not a typo.  If ret is GRR_APP_RET_OK, that means we can use the history file and
             // therefore can skip past the directory search logic.
-            if ( ret == GRR_RET_OK ) {
+            if ( ret == GRR_APP_RET_OK ) {
                 goto done;
             }
         }
@@ -117,7 +129,7 @@ int main(int argc, char **argv) {
                 fprintf(stderr,"Failed to create create history file: %s\n", strerror(errno));
             }
 
-            ret=GRR_RET_FILE_ACCESS;
+            ret=GRR_APP_RET_FILE_ACCESS;
             goto done;
         }
 
@@ -128,7 +140,7 @@ int main(int argc, char **argv) {
             }
 
             close(fd);
-            ret=GRR_RET_OUT_OF_MEMORY;
+            ret=GRR_APP_RET_OUT_OF_MEMORY;
             goto done;
         }
 
@@ -136,7 +148,7 @@ int main(int argc, char **argv) {
 
         if ( !realpath(path,starting_directory) ) {
             perror("realpath");
-            ret=GRR_RET_OTHER;
+            ret=GRR_APP_RET_OTHER;
             goto done;
         }
         fprintf(options.logger,"%s\n", starting_directory);
@@ -167,7 +179,7 @@ int main(int argc, char **argv) {
     dir=opendir(path);
     if ( !dir ) {
         fprintf(stderr,"Failed to access starting directory.\n");
-        ret=GRR_RET_FILE_ACCESS;
+        ret=GRR_APP_RET_FILE_ACCESS;
         goto done;
     }
     line_no=-1;
@@ -181,7 +193,7 @@ int main(int argc, char **argv) {
     if ( options.logger ) {
         fclose(options.logger);
 
-        if ( ret == GRR_RET_OK ) {
+        if ( ret == GRR_APP_RET_OK ) {
             const char *home;
 
             home=getenv("HOME");
@@ -221,7 +233,7 @@ int parseOptions(int argc, char **argv, grrOptions *options) {
 
     if ( argc == 1 ) {
         usage(argv[0]);
-        return GRR_RET_BAD_DATA;
+        return GRR_APP_RET_BAD_DATA;
     }
 
     while ( (optval=getopt(argc,argv,":r:d:p:f:e:l:niycvuh")) != -1 ) {
@@ -231,7 +243,7 @@ int parseOptions(int argc, char **argv, grrOptions *options) {
         switch ( optval ) {
             case 'r':
             ret=grrCompile(argv[optind-1],strlen(argv[optind-1]),&options->search_pattern);
-            if ( ret != GRR_RET_OK ) {
+            if ( ret != GRR_APP_RET_OK ) {
                 fprintf(stderr,"Could not compile pattern.\n");
                 return ret;
             }
@@ -241,7 +253,7 @@ int parseOptions(int argc, char **argv, grrOptions *options) {
             temp=argv[optind-1];
             if ( !temp[0] ) {
                 fprintf(stderr,"Starting directory cannot be empty.\n");
-                return GRR_RET_BAD_DATA;
+                return GRR_APP_RET_BAD_DATA;
             }
             if ( temp[strlen(temp)-1] == '/' ) {
                 ret=snprintf(options->starting_directory,PATH_MAX,"%s", temp);
@@ -251,22 +263,22 @@ int parseOptions(int argc, char **argv, grrOptions *options) {
             }
             if ( ret >= PATH_MAX ) {
                 fprintf(stderr,"Starting directory is too long (max. of %i characters).\n", PATH_MAX-1);
-                return GRR_RET_BAD_DATA;
+                return GRR_APP_RET_BAD_DATA;
             }
 
             if ( stat(options->starting_directory,&file_stat) != 0 ) {
                 perror("Could not stat starting directory");
-                return GRR_RET_FILE_ACCESS;
+                return GRR_APP_RET_FILE_ACCESS;
             }
 
             if ( !S_ISDIR(file_stat.st_mode) ) {
                 fprintf(stderr,"%s is not a directory.\n", options->starting_directory);
-                return GRR_RET_BAD_DATA;
+                return GRR_APP_RET_BAD_DATA;
             }
 
             if ( access(options->starting_directory,X_OK) != 0 ) {
                 perror("Could not access starting directory");
-                return GRR_RET_FILE_ACCESS;
+                return GRR_APP_RET_FILE_ACCESS;
             }
             break;
 
@@ -275,13 +287,13 @@ int parseOptions(int argc, char **argv, grrOptions *options) {
             options->depth=strtol(optarg,&temp,10);
             if ( errno != 0 || temp == optarg || temp[0] != '\0' ) {
                 fprintf(stderr,"Invalid 'p' option: %s\n", optarg);
-                return GRR_RET_BAD_DATA;
+                return GRR_APP_RET_BAD_DATA;
             }
             break;
 
             case 'f':
             ret=grrCompile(optarg,strlen(optarg),&options->file_pattern);
-            if ( ret != GRR_RET_OK ) {
+            if ( ret != GRR_APP_RET_OK ) {
                 fprintf(stderr,"Could not compile file pattern.\n");
                 return ret;
             }
@@ -296,7 +308,7 @@ int parseOptions(int argc, char **argv, grrOptions *options) {
             options->line_no=strtol(optarg,&temp,10);
             if ( errno != 0 || temp == optarg || temp[0] != '\0' ) {
                 fprintf(stderr,"Invalid 'l' option: %s\n", optarg);
-                return GRR_RET_BAD_DATA;
+                return GRR_APP_RET_BAD_DATA;
             }
             break;
 
@@ -322,20 +334,20 @@ int parseOptions(int argc, char **argv, grrOptions *options) {
 
             case 'u':
             printf("%s\n", GRR_VERSION);
-            return GRR_RET_DONE;
+            return GRR_APP_RET_BREAK_RECURSION;
 
             case 'h':
             usage(argv[0]);
-            return GRR_RET_DONE;
+            return GRR_APP_RET_BREAK_RECURSION;
 
             case '?':
             fprintf(stderr,"Invalid option: %c\n", optopt);
             usage(argv[0]);
-            return GRR_RET_BAD_DATA;
+            return GRR_APP_RET_BAD_DATA;
 
             case ':':
             fprintf(stderr,"-%c requires an argument.\n", optopt);
-            return GRR_RET_BAD_DATA;
+            return GRR_APP_RET_BAD_DATA;
 
             default:
             abort();
@@ -345,10 +357,10 @@ int parseOptions(int argc, char **argv, grrOptions *options) {
     if ( !options->search_pattern ) {
         fprintf(stderr,"No search pattern was provided.\n");
         usage(argv[0]);
-        return GRR_RET_BAD_DATA;
+        return GRR_APP_RET_BAD_DATA;
     }
 
-    return GRR_RET_OK;
+    return GRR_APP_RET_OK;
 }
 
 void usage(const char *executable) {
@@ -377,23 +389,23 @@ int isExecutable(const char *path) {
     FILE *f;
 
     if ( access(path,X_OK) == 0 ) {
-        return GRR_RET_OK;
+        return GRR_APP_RET_OK;
     }
 
     if ( snprintf(line,sizeof(line),"which %s", path) >= sizeof(line) ) {
-        return GRR_RET_OVERFLOW;
+        return GRR_APP_RET_OVERFLOW;
     }
 
     f=popen(line,"r");
     if ( !f ) {
-        return GRR_RET_OUT_OF_MEMORY;
+        return GRR_APP_RET_OUT_OF_MEMORY;
     }
 
     if ( fgets(line,sizeof(line),f) ) {
-        ret=line[0]? GRR_RET_OK : GRR_RET_NOT_FOUND;
+        ret=line[0]? GRR_APP_RET_OK : GRR_APP_RET_NOT_FOUND;
     }
     else {
-        ret=GRR_RET_FILE_ACCESS;
+        ret=GRR_APP_RET_FILE_ACCESS;
     }
     pclose(f);
 
@@ -401,7 +413,7 @@ int isExecutable(const char *path) {
 }
 
 int compareOptionsToHistory(const grrOptions *options) {
-    int ret=GRR_RET_BAD_DATA;
+    int ret=GRR_APP_RET_BAD_DATA;
     size_t len;
     const char *home;
     char history_file[50], line[PATH_MAX+10], absolute_starting_directory[PATH_MAX];
@@ -414,18 +426,18 @@ int compareOptionsToHistory(const grrOptions *options) {
             fprintf(stderr,"The HOME environment variable is unset.\n");
         }
 
-        return GRR_RET_OTHER;
+        return GRR_APP_RET_OTHER;
     }
     if ( snprintf(history_file,sizeof(history_file),"%s/%s", home, GRR_HISTORY) >= sizeof(history_file) ) {
         if ( options->verbose ) {
             fprintf(stderr,"%s/%s was too big for the buffer.\n", home, GRR_HISTORY);
         }
 
-        return GRR_RET_OVERFLOW;
+        return GRR_APP_RET_OVERFLOW;
     }
 
     if ( access(history_file,F_OK) != 0 ) {
-        return GRR_RET_OK;
+        return GRR_APP_RET_OK;
     }
 
     f=fopen(history_file,"rb");
@@ -434,7 +446,7 @@ int compareOptionsToHistory(const grrOptions *options) {
             fprintf(stderr,"Failed to open %s: %s\n", history_file, strerror(errno));
         }
 
-        return GRR_RET_FILE_ACCESS;
+        return GRR_APP_RET_FILE_ACCESS;
     }
 
     if ( !readLine(f,line,sizeof(line)) ) {
@@ -453,7 +465,7 @@ int compareOptionsToHistory(const grrOptions *options) {
             fprintf(stderr,"Failed to resolve absolute path of starting directory.\n");
         }
 
-        ret=GRR_RET_OTHER;
+        ret=GRR_APP_RET_OTHER;
         goto done;
     }
 
@@ -577,7 +589,7 @@ int compareOptionsToHistory(const grrOptions *options) {
 
         ret=executeEditor(options->editor,line,line_no,options->verbose);
     }
-    ret=( ret == 0 )? GRR_RET_OK : GRR_RET_EXEC;
+    ret=( ret == 0 )? GRR_APP_RET_OK : GRR_APP_RET_EXEC;
     goto done;
 
     failed_read:
@@ -590,7 +602,7 @@ int compareOptionsToHistory(const grrOptions *options) {
             fprintf(stderr,"Unexpected end of file found in %s.\n", history_file);
         }
     }
-    ret=GRR_RET_FILE_ACCESS;
+    ret=GRR_APP_RET_FILE_ACCESS;
 
     done:
 
@@ -615,7 +627,7 @@ bool readLine(FILE *f, char *destination, size_t size) {
 }
 
 int searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOptions *options) {
-    int ret=GRR_RET_OK;
+    int ret=GRR_APP_RET_OK;
     size_t offset, newLen;
     struct dirent *entry;
 
@@ -649,8 +661,8 @@ int searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const g
                 continue;
             }
 
-            if ( searchFileForPattern(path,line_no,options) == GRR_RET_DONE ) {
-                ret=GRR_RET_DONE;
+            if ( searchFileForPattern(path,line_no,options) == GRR_APP_RET_BREAK_RECURSION ) {
+                ret=GRR_APP_RET_BREAK_RECURSION;
                 goto done;
             }
         }
@@ -682,10 +694,10 @@ int searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const g
 
             ret=searchDirectoryTree(subdir,path,depth+1,line_no,options);
             closedir(subdir);
-            if ( ret == GRR_RET_DONE ) {
+            if ( ret == GRR_APP_RET_BREAK_RECURSION ) {
                 goto done;
             }
-            ret=GRR_RET_OK;
+            ret=GRR_APP_RET_OK;
         }
     }
 
@@ -697,7 +709,7 @@ int searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const g
 }
 
 int searchFileForPattern(const char *path, long *line_no, const grrOptions *options) {
-    int ret=GRR_RET_NOT_FOUND;
+    int ret=GRR_APP_RET_NOT_FOUND;
     FILE *f;
     char line[2048];
 
@@ -710,10 +722,11 @@ int searchFileForPattern(const char *path, long *line_no, const grrOptions *opti
         if ( options->verbose ) {
             fprintf(stderr,"Could not read %s.\n", path);
         }
-        return GRR_RET_FILE_ACCESS;
+        return GRR_APP_RET_FILE_ACCESS;
     }
 
     for (size_t file_line_no=1; fgets(line,sizeof(line),f); file_line_no++) {
+        int engine_ret;
         size_t len, start, end, offset, cursor;
         const char change_color_to_red[]={0x1b,'[','9','1','m','\0'};
         const char restore_color[]={0x1b,'[','0','m','\0'};
@@ -726,15 +739,16 @@ int searchFileForPattern(const char *path, long *line_no, const grrOptions *opti
         if ( len == 0 ) {
             continue;
         }
-        ret=grrSearch(options->search_pattern,line,len,&start,&end,&cursor,false);
-        if ( ret == GRR_RET_BAD_DATA ) {
+        engine_ret=grrSearch(options->search_pattern,line,len,&start,&end,&cursor,false);
+        if ( engine_ret == GRR_RET_BAD_DATA ) {
+            ret=GRR_APP_RET_BAD_DATA;
             if ( options->verbose ) {
                 fprintf(stderr,"Terminating processing of %s since it contains non-printable data on line %zu, column %zu.\n", path, file_line_no, cursor);
             }
             break;
         }
 
-        if ( ret != GRR_RET_OK ) {
+        if ( engine_ret == GRR_RET_NOT_FOUND ) {
             continue;
         }
 
@@ -743,7 +757,7 @@ int searchFileForPattern(const char *path, long *line_no, const grrOptions *opti
         if ( options->editor ) {
             if ( *line_no == options->line_no ) {
                 executeEditor(options->editor,path,options->names_only? 1 : file_line_no,options->verbose);
-                ret=GRR_RET_DONE;
+                ret=GRR_APP_RET_BREAK_RECURSION;
                 break;
             }
             else if ( options->names_only ) {
