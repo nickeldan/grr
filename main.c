@@ -27,7 +27,7 @@ Written by Daniel Walker, 2020.
 
 #include "engine/include/nfa.h"
 
-#define GRR_VERSION "2.1.0"
+#define GRR_VERSION "2.1.1"
 #define GRR_HISTORY ".grr_history"
 
 #ifndef MIN
