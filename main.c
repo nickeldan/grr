@@ -68,16 +68,33 @@ typedef struct grrSimpleOptions {
     bool ignore_hidden;
 } grrSimpleOptions;
 
-int parseOptions(int argc, char **argv, grrOptions *options);
-void usage(const char *executable);
-int isExecutable(const char *path);
-int compareOptionsToHistory(const grrOptions *options);
-bool readLine(FILE *f, char *destination, size_t size);
-int searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOptions *options);
-int searchFileForPattern(const char *path, long *line_no, const grrOptions *options);
-int executeEditor(const char *editor, const char *path, long line_no, bool verbose);
+int
+parseOptions(int argc, char **argv, grrOptions *options);
 
-int main(int argc, char **argv) {
+void
+usage(const char *executable);
+
+int
+isExecutable(const char *path);
+
+int
+compareOptionsToHistory(const grrOptions *options);
+
+bool
+readLine(FILE *f, char *destination, size_t size);
+
+int
+searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOptions *options);
+
+int
+searchFileForPattern(const char *path, long *line_no, const grrOptions *options);
+
+int
+executeEditor(const char *editor, const char *path, long line_no, bool verbose);
+
+int
+main(int argc, char **argv)
+{
     int ret;
     long line_no;
     grrOptions options={0};
@@ -223,7 +240,9 @@ int main(int argc, char **argv) {
     return ret;
 }
 
-int parseOptions(int argc, char **argv, grrOptions *options) {
+int
+parseOptions(int argc, char **argv, grrOptions *options)
+{
     int ret, optval;
 
     options->search_pattern=NULL;
@@ -363,7 +382,9 @@ int parseOptions(int argc, char **argv, grrOptions *options) {
     return GRR_APP_RET_OK;
 }
 
-void usage(const char *executable) {
+void
+usage(const char *executable)
+{
     printf("Usage: %s [options]\n", executable);
     printf("Options:\n");
     printf("\t-r <pattern>        -- Specify the search regex.  Required unless either -u or -h are specified.\n");
@@ -383,7 +404,9 @@ void usage(const char *executable) {
     printf("\t-h                  -- Prints this message.\n");
 }
 
-int isExecutable(const char *path) {
+int
+isExecutable(const char *path)
+{
     int ret;
     char line[PATH_MAX+6];
     FILE *f;
@@ -611,7 +634,9 @@ int compareOptionsToHistory(const grrOptions *options) {
     return ret;
 }
 
-bool readLine(FILE *f, char *destination, size_t size) {
+bool
+readLine(FILE *f, char *destination, size_t size)
+{
     size_t len;
 
     if ( !fgets(destination,size,f) ) {
@@ -626,7 +651,9 @@ bool readLine(FILE *f, char *destination, size_t size) {
     return true;
 }
 
-int searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOptions *options) {
+int
+searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOptions *options)
+{
     int ret=GRR_APP_RET_OK;
     size_t offset, newLen;
     struct dirent *entry;
@@ -708,7 +735,9 @@ int searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const g
     return ret;
 }
 
-int searchFileForPattern(const char *path, long *line_no, const grrOptions *options) {
+int
+searchFileForPattern(const char *path, long *line_no, const grrOptions *options)
+{
     int ret=GRR_APP_RET_NOT_FOUND;
     FILE *f;
     char line[2048];
@@ -815,7 +844,9 @@ int searchFileForPattern(const char *path, long *line_no, const grrOptions *opti
     return ret;
 }
 
-int executeEditor(const char *editor, const char *path, long line_no, bool verbose) {
+int
+executeEditor(const char *editor, const char *path, long line_no, bool verbose)
+{
     int status;
     pid_t child;
 
