@@ -415,7 +415,7 @@ isExecutable(const char *path)
         return GRR_APP_RET_OK;
     }
 
-    if ( snprintf(line,sizeof(line),"which %s", path) >= sizeof(line) ) {
+    if ( snprintf(line,sizeof(line),"which %s", path) >= (ssize_t)sizeof(line) ) {
         return GRR_APP_RET_OVERFLOW;
     }
 
@@ -451,7 +451,8 @@ int compareOptionsToHistory(const grrOptions *options) {
 
         return GRR_APP_RET_OTHER;
     }
-    if ( snprintf(history_file,sizeof(history_file),"%s/%s", home, GRR_HISTORY) >= sizeof(history_file) ) {
+    if ( snprintf(history_file,sizeof(history_file),"%s/%s", home, GRR_HISTORY)
+            >= (ssize_t)sizeof(history_file) ) {
         if ( options->verbose ) {
             fprintf(stderr,"%s/%s was too big for the buffer.\n", home, GRR_HISTORY);
         }
@@ -655,7 +656,7 @@ int
 searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOptions *options)
 {
     int ret=GRR_APP_RET_OK;
-    size_t offset, newLen;
+    size_t offset, new_len;
     struct dirent *entry;
 
     offset=strlen(path);
@@ -674,7 +675,14 @@ searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOp
         path[offset]='\0';
 
         strncat(path,entry->d_name,PATH_MAX);
-        newLen=strlen(path);
+        new_len=strlen(path);
+        if ( new_len >= PATH_MAX ) {
+            if ( options->verbose ) {
+                path[offset]='\0';
+                fprintf(stderr,"Skipping file in the %s directory because its name is too long.\n", path);
+            }
+            continue;
+        }
 
         if ( lstat(path,&file_stat) != 0 ) {
             if ( options->verbose ) {
@@ -684,7 +692,9 @@ searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOp
         }
 
         if ( S_ISREG(file_stat.st_mode) ) {
-            if ( options->file_pattern && grrSearch(options->file_pattern,entry->d_name,strlen(entry->d_name),NULL,NULL,NULL,false) != GRR_RET_OK ) {
+            if ( options->file_pattern &&
+                    grrSearch(options->file_pattern,entry->d_name,strlen(entry->d_name),NULL,NULL,NULL,false)
+                        != GRR_RET_OK ) {
                 continue;
             }
 
@@ -700,7 +710,7 @@ searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOp
                 continue;
             }
 
-            if ( newLen+1 == PATH_MAX ) {
+            if ( new_len+1 == PATH_MAX ) {
                 if ( options->verbose ) {
                     path[offset]='\0';
                     fprintf(stderr,"Skipping subdirectory of %s because its name is too long.\n", path);
@@ -708,8 +718,8 @@ searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOp
                 continue;
             }
 
-            path[newLen++]='/';
-            path[newLen]='\0';
+            path[new_len++]='/';
+            path[new_len]='\0';
 
             subdir=opendir(path);
             if ( !subdir ) {
@@ -772,7 +782,8 @@ searchFileForPattern(const char *path, long *line_no, const grrOptions *options)
         if ( engine_ret == GRR_RET_BAD_DATA ) {
             ret=GRR_APP_RET_BAD_DATA;
             if ( options->verbose ) {
-                fprintf(stderr,"Terminating processing of %s since it contains non-printable data on line %zu, column %zu.\n", path, file_line_no, cursor);
+                fprintf(stderr,"Terminating processing of %s since it contains non-printable data on line "
+                    "%zu, column %zu.\n", path, file_line_no, cursor);
             }
             break;
         }
@@ -860,7 +871,7 @@ executeEditor(const char *editor, const char *path, long line_no, bool verbose)
         if ( strncmp(editor,"vi",3) == 0 || strncmp(editor,"vim",4) == 0 ) {
             char argument[50];
 
-            if ( snprintf(argument,sizeof(argument),"+%li", line_no) >= sizeof(line_no) ) {
+            if ( snprintf(argument,sizeof(argument),"+%li", line_no) >= (ssize_t)sizeof(line_no) ) {
                 if ( verbose ) {
                     fprintf(stderr,"line_no is too big to fit into buffer: %li\n", line_no);
                 }

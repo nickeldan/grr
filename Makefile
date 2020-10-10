@@ -1,7 +1,7 @@
 CC ?= gcc
 debug ?= no
 
-COMPILER_FLAGS := -std=gnu11 -Wall
+COMPILER_FLAGS := -std=gnu11 -fdiagnostics-color -Wall -Wextra
 ifeq ($(debug),yes)
     COMPILER_FLAGS += -O0 -g -DDEBUG
 else
