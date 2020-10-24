@@ -1,5 +1,5 @@
 2.1.2:
-    - Upgraded GrrEnging to 2.0.1 which fixed some issues with the handling of "." and "$".
+    - Upgraded GrrEngine to 2.0.1 which fixed some issues with the handling of "." and "$".
 
 2.1.1:
     - Fixed a bug where the temporary history file wasn't getting unlinked if Grr failed.

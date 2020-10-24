@@ -2,7 +2,6 @@
 Written by Daniel Walker, 2020.
 */
 
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -27,7 +26,7 @@ Written by Daniel Walker, 2020.
 
 #include "engine/include/nfa.h"
 
-#define GRR_VERSION "2.1.1"
+#define GRR_VERSION "2.1.2"
 #define GRR_HISTORY ".grr_history"
 
 #ifndef MIN
@@ -36,7 +35,7 @@ Written by Daniel Walker, 2020.
 
 enum grrAppRetValue {
     GRR_APP_RET_OK = 0,
-    GRR_APP_RET_BREAK_RECURSION,
+    GRR_APP_RET_DONE,
     GRR_APP_RET_FILE_ACCESS,
     GRR_APP_RET_NOT_FOUND,
     GRR_APP_RET_OUT_OF_MEMORY,
@@ -106,7 +105,7 @@ main(int argc, char **argv)
 
     ret=parseOptions(argc,argv,&options);
     if ( ret != GRR_APP_RET_OK ) {
-        if ( ret == GRR_APP_RET_BREAK_RECURSION ) {
+        if ( ret == GRR_APP_RET_DONE ) {
             ret=GRR_APP_RET_OK;
         }
         goto done;
@@ -353,11 +352,11 @@ parseOptions(int argc, char **argv, grrOptions *options)
 
             case 'u':
             printf("%s\n", GRR_VERSION);
-            return GRR_APP_RET_BREAK_RECURSION;
+            return GRR_APP_RET_DONE;
 
             case 'h':
             usage(argv[0]);
-            return GRR_APP_RET_BREAK_RECURSION;
+            return GRR_APP_RET_DONE;
 
             case '?':
             fprintf(stderr,"Invalid option: %c\n", optopt);
@@ -698,8 +697,8 @@ searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOp
                 continue;
             }
 
-            if ( searchFileForPattern(path,line_no,options) == GRR_APP_RET_BREAK_RECURSION ) {
-                ret=GRR_APP_RET_BREAK_RECURSION;
+            if ( searchFileForPattern(path,line_no,options) == GRR_APP_RET_DONE ) {
+                ret=GRR_APP_RET_DONE;
                 goto done;
             }
         }
@@ -731,7 +730,7 @@ searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOp
 
             ret=searchDirectoryTree(subdir,path,depth+1,line_no,options);
             closedir(subdir);
-            if ( ret == GRR_APP_RET_BREAK_RECURSION ) {
+            if ( ret == GRR_APP_RET_DONE ) {
                 goto done;
             }
             ret=GRR_APP_RET_OK;
@@ -797,7 +796,7 @@ searchFileForPattern(const char *path, long *line_no, const grrOptions *options)
         if ( options->editor ) {
             if ( *line_no == options->line_no ) {
                 executeEditor(options->editor,path,options->names_only? 1 : file_line_no,options->verbose);
-                ret=GRR_APP_RET_BREAK_RECURSION;
+                ret=GRR_APP_RET_DONE;
                 break;
             }
             else if ( options->names_only ) {
@@ -833,7 +832,7 @@ searchFileForPattern(const char *path, long *line_no, const grrOptions *options)
             printf("%s", change_color_to_red);
         }
         if ( end-start > 50 ) {
-            printf("%.*s ... %.*s", 10, line+start, 10, line+end-10);
+            printf("%.*s ... %.*s", 15, line+start, 15, line+end-15);
         }
         else {
             printf("%.*s", (int)(end-start), line+start);
@@ -842,8 +841,8 @@ searchFileForPattern(const char *path, long *line_no, const grrOptions *options)
             printf("%s", restore_color);
         }
 
-        if ( len-end > 15 ) {
-            printf("%.*s ...\n", 15, line+end);
+        if ( len-end > 50 ) {
+            printf("%.*s ...\n", 50, line+end);
         }
         else {
             printf("%.*s\n", (int)(len-end), line+end);
