@@ -15,7 +15,7 @@ all: grr
 grr: main.o engine/libgrrengine.a
 	$(CC) $^ -o $@
 
-main.o: main.c engine/include/nfa.h engine/include/nfaDef.h engine/include/nfaCompiler.h engine/include/nfaRuntime.h
+main.o: main.c engine/include/*.h
 	$(CC) $(COMPILER_FLAGS) -c $<
 
 engine/libgrrengine.a: FORCE
