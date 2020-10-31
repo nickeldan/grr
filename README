@@ -1,5 +1,5 @@
 Grr was written by Daniel Walker.
-Version 2.1.3 was released on October 24, 2020.
+Version 2.1.4 was released on October 30, 2020.
 
 Grr takes a regex and searches a directory tree for files containing strings which match that regex.  All
 lines which contain a match are printed to the screen in the following format:
@@ -30,6 +30,7 @@ Options:
     -i                  The directory tree search will ignore all hidden files and folders.
     -y                  Neither read from nor write to the history file.  See "HISTORY FILE" below.
     -c                  Ordinarily, the substring within the file which matched the regex is printed in red.
+                        When stdout is not directed to a terminal, color is disabled automatically.
                         This option disables that coloration.
     -v                  Prints verbose output to stderr.
     -u                  Prints Grr's version.

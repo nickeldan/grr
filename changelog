@@ -1,3 +1,6 @@
+2.1.4:
+    - Color is automatically disabled when stdout is redirected to a non-terminal.
+
 2.1.3:
     - Upgraded GrrEngine to 2.0.2 which fixed the compilation of parenthetical groups without any
       disjunctions contained within.

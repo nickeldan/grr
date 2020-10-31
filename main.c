@@ -26,7 +26,7 @@ Written by Daniel Walker, 2020.
 
 #include "engine/include/nfa.h"
 
-#define GRR_VERSION "2.1.3"
+#define GRR_VERSION "2.1.4"
 #define GRR_HISTORY ".grr_history"
 
 #ifndef MIN
@@ -109,6 +109,10 @@ main(int argc, char **argv)
             ret=GRR_APP_RET_OK;
         }
         goto done;
+    }
+
+    if ( !isatty(STDOUT_FILENO) ) {
+        options.colorless = true;
     }
 
     if ( options.line_no >= 0 ) {
