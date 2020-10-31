@@ -30,8 +30,8 @@ Options:
     -i                  The directory tree search will ignore all hidden files and folders.
     -y                  Neither read from nor write to the history file.  See "HISTORY FILE" below.
     -c                  Ordinarily, the substring within the file which matched the regex is printed in red.
-                        When stdout is not directed to a terminal, color is disabled automatically.
-                        This option disables that coloration.
+                        This option disables that coloration.  When stdout is not directed to a terminal,
+                        color is disabled automatically.
     -v                  Prints verbose output to stderr.
     -u                  Prints Grr's version.
     -h                  Prints the usage information.
