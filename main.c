@@ -390,21 +390,25 @@ usage(const char *executable)
 {
     printf("Usage: %s [options]\n", executable);
     printf("Options:\n");
-    printf("\t-r <pattern>        -- Specify the search regex.  Required unless either -u or -h are specified.\n");
+    printf("\t-r <pattern>        -- Specify the search regex.  Required unless either -u or -h are\n");
+    printf("\t                       specified.\n");
     printf("\t-d <directory>      -- Specify the staring directory.  Defaults to the current directory.\n");
-    printf("\t-p <depth>          -- Specify the directory search maximum depth.  Defaults to infinite.  A\n");
-    printf("\t                       value of 0 means that only the starting directory is searched.\n");
-    printf("\t-f <file-pattern>   -- Only examine files whose names (excluding the directory) match this regex.\n");
-    printf("\t-e <editor>         -- When used in conjunction with -l, specifies the editor for opening files.\n");
-    printf("\t                       Defaults to the EDITOR environment variable or vi/vim if that is unset.\n");
-    printf("\t-l <result-number>  -- Opens up the file specified in the l^th result.\n");
-    printf("\t-n                  -- Display only the file names and not the individual lines within them.\n");
+    printf("\t-p <depth>          -- Specify the directory search maximum depth.  Defaults to infinite.\n");
+    printf("\t                       A value of 0 means that only the starting directory is searched.\n");
+    printf("\t-f <file-pattern>   -- Only examine files whose names (excluding the directory) match this\n");
+    printf("\t                       regex.\n");
+    printf("\t-e <editor>         -- When used in conjunction with -l, specify the editor for opening\n");
+    printf("\t                       files.  Defaults to the EDITOR environment variable or vi/vim if\n");
+    printf("\t                       that is unset.\n");
+    printf("\t-l <result-number>  -- Open up the file specified in the l^th result.\n");
+    printf("\t-n                  -- Display only the file names and not the individual lines within\n");
+    printf("\t                       them.\n");
     printf("\t-i                  -- Ignore hidden files and directories.\n");
     printf("\t-y                  -- Neither read from nor write to the history file.\n");
-    printf("\t-c                  -- Don't color the output text.\n");
+    printf("\t-c                  -- Remove color from the output text.\n");
     printf("\t-v                  -- Print verbose output to stderr.\n");
-    printf("\t-u                  -- Prints Grr's version.\n");
-    printf("\t-h                  -- Prints this message.\n");
+    printf("\t-u                  -- Print Grr's version.\n");
+    printf("\t-h                  -- Print this message.\n");
 }
 
 int
