@@ -7,18 +7,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <limits.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <unistd.h>
-
-#ifdef __linux__
-#include <linux/limits.h>
-#elif defined(__APPLE__)
-#include <sys/syslimits.h>
-#else
-#error "I don't know where to find PATH_MAX."
-#endif
 
 #include "engine/include/nfa.h"
 
