@@ -7,11 +7,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <limits.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include "engine/include/nfa.h"
 
@@ -35,9 +34,9 @@ enum grrAppRetValue {
 };
 
 typedef struct grrOptions {
-    char* starting_directory;
-    char* editor;
-    FILE* logger;
+    char *starting_directory;
+    char *editor;
+    FILE *logger;
     grrNfa search_pattern;
     grrNfa file_pattern;
     long depth;
@@ -57,37 +56,37 @@ typedef struct grrSimpleOptions {
 } grrSimpleOptions;
 
 int
-parseOptions(int argc, char** argv, grrOptions* options);
+parseOptions(int argc, char **argv, grrOptions *options);
 
 void
-usage(const char* executable);
+usage(const char *executable);
 
 int
-isExecutable(const char* path);
+isExecutable(const char *path);
 
 int
-compareOptionsToHistory(const grrOptions* options);
+compareOptionsToHistory(const grrOptions *options);
 
 bool
-readLine(FILE* f, char* destination, size_t size);
+readLine(FILE *f, char *destination, size_t size);
 
 int
-searchDirectoryTree(DIR* dir, char* path, long depth, long* line_no, const grrOptions* options);
+searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOptions *options);
 
 int
-searchFileForPattern(const char* path, long* line_no, const grrOptions* options);
+searchFileForPattern(const char *path, long *line_no, const grrOptions *options);
 
 int
-executeEditor(const char* editor, const char* path, long line_no, bool verbose);
+executeEditor(const char *editor, const char *path, long line_no, bool verbose);
 
 int
-main(int argc, char** argv) {
+main(int argc, char **argv) {
     int ret;
     long line_no;
     grrOptions options = {0};
     char path[PATH_MAX];
     char tmp_file[] = "./.grr_tempXXXXXX";
-    DIR* dir;
+    DIR *dir;
 
     options.starting_directory = path;
 
@@ -201,7 +200,7 @@ done:
         fclose(options.logger);
 
         if (ret == GRR_APP_RET_OK) {
-            const char* home;
+            const char *home;
 
             home = getenv("HOME");
             if (home) {
@@ -232,7 +231,7 @@ done:
 }
 
 int
-parseOptions(int argc, char** argv, grrOptions* options) {
+parseOptions(int argc, char **argv, grrOptions *options) {
     int ret, optval;
 
     options->search_pattern = NULL;
@@ -247,7 +246,7 @@ parseOptions(int argc, char** argv, grrOptions* options) {
 
     while ((optval = getopt(argc, argv, ":r:d:p:f:e:l:niycvuh")) != -1) {
         struct stat file_stat;
-        char* temp;
+        char *temp;
 
         switch (optval) {
         case 'r':
@@ -353,7 +352,7 @@ parseOptions(int argc, char** argv, grrOptions* options) {
 }
 
 void
-usage(const char* executable) {
+usage(const char *executable) {
     printf("Usage: %s [options]\n", executable);
     printf("Options:\n");
     printf("\t-r <pattern>        -- Specify the search regex.  Required unless either -u or -h are\n");
@@ -378,10 +377,10 @@ usage(const char* executable) {
 }
 
 int
-isExecutable(const char* path) {
+isExecutable(const char *path) {
     int ret;
     char line[PATH_MAX + 6];
-    FILE* f;
+    FILE *f;
 
     if (access(path, X_OK) == 0) {
         return GRR_APP_RET_OK;
@@ -407,12 +406,12 @@ isExecutable(const char* path) {
 }
 
 int
-compareOptionsToHistory(const grrOptions* options) {
+compareOptionsToHistory(const grrOptions *options) {
     int ret = GRR_APP_RET_BAD_DATA;
     size_t len;
-    const char* home;
+    const char *home;
     char history_file[50], line[PATH_MAX + 10], absolute_starting_directory[PATH_MAX];
-    FILE* f;
+    FILE *f;
     grrSimpleOptions observed_options = {.depth = -1};
 
     home = getenv("HOME");
@@ -516,7 +515,7 @@ compareOptionsToHistory(const grrOptions* options) {
     }
 
     if (observed_options.depth != -1) {
-        char* temp;
+        char *temp;
 
         if (options->depth == -1) {
             goto done;
@@ -560,7 +559,7 @@ compareOptionsToHistory(const grrOptions* options) {
             goto done;
         }
 
-        line[colon_ptr - (char*)line] = '\0';
+        line[colon_ptr - (char *)line] = '\0';
         line_no = strtol(colon_ptr + 1, &temp, 10);
         if (temp[0] != '\0' || (line_no == LONG_MAX && errno == ERANGE) || line_no < 1) {
             if (options->verbose) {
@@ -594,7 +593,7 @@ done:
 }
 
 bool
-readLine(FILE* f, char* destination, size_t size) {
+readLine(FILE *f, char *destination, size_t size) {
     size_t len;
 
     if (!fgets(destination, size, f)) {
@@ -610,10 +609,10 @@ readLine(FILE* f, char* destination, size_t size) {
 }
 
 int
-searchDirectoryTree(DIR* dir, char* path, long depth, long* line_no, const grrOptions* options) {
+searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOptions *options) {
     int ret = GRR_APP_RET_OK;
     size_t offset, new_len;
-    struct dirent* entry;
+    struct dirent *entry;
 
     offset = strlen(path);
 
@@ -658,7 +657,7 @@ searchDirectoryTree(DIR* dir, char* path, long depth, long* line_no, const grrOp
                 goto done;
             }
         } else if (S_ISDIR(file_stat.st_mode)) {
-            DIR* subdir;
+            DIR *subdir;
 
             if (depth + 1 == options->depth) {
                 continue;
@@ -700,9 +699,9 @@ done:
 }
 
 int
-searchFileForPattern(const char* path, long* line_no, const grrOptions* options) {
+searchFileForPattern(const char *path, long *line_no, const grrOptions *options) {
     int ret = GRR_APP_RET_NOT_FOUND;
-    FILE* f;
+    FILE *f;
     char line[2048];
 
     if (options->verbose) {
@@ -809,7 +808,7 @@ searchFileForPattern(const char* path, long* line_no, const grrOptions* options)
 }
 
 int
-executeEditor(const char* editor, const char* path, long line_no, bool verbose) {
+executeEditor(const char *editor, const char *path, long line_no, bool verbose) {
     int status;
     pid_t child;
 
