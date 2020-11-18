@@ -14,6 +14,7 @@ all: grr
 
 grr: main.o engine/libgrrengine.a
 	$(CC) $^ -o $@
+	strip $@
 
 main.o: main.c engine/include/*.h
 	$(CC) $(COMPILER_FLAGS) -c $<
