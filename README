@@ -1,5 +1,5 @@
 Grr was written by Daniel Walker.
-Version 2.1.4 was released on October 30, 2020.
+Version 2.1.5 was released on November 18, 2020.
 
 Grr takes a regex and searches a directory tree for files containing strings which match that regex.  All
 lines which contain a match are printed to the screen in the following format:

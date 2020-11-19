@@ -1,3 +1,6 @@
+2.1.5:
+    - Upgraded GrrEngine to 2.0.3 which fixed the processing of $.
+
 2.1.4:
     - Color is automatically disabled when stdout is redirected to a non-terminal.
 

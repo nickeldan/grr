@@ -14,7 +14,7 @@
 
 #include "engine/include/nfa.h"
 
-#define GRR_VERSION "2.1.4"
+#define GRR_VERSION "2.1.5"
 #define GRR_HISTORY ".grr_history"
 
 #ifndef MIN
