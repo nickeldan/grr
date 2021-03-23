@@ -20,7 +20,7 @@ main.o: main.c engine/include/*.h
 	$(CC) $(COMPILER_FLAGS) -c $<
 
 engine/libgrrengine.a: FORCE
-	cd $(dir $@) && make CC=$(CC) debug=$(debug) $(notdir $@)
+	cd engine && make libgrrengine.a CC=$(CC) debug=$(debug)
 
 clean:
 	rm -f grr *.o

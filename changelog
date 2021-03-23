@@ -1,3 +1,7 @@
+2.1.6:
+    - Changed the width of the displayed results.
+    - The editor is no longer run as a forked child process but is exec'ed in the main process.
+
 2.1.5:
     - Upgraded GrrEngine to 2.0.3 which fixed the processing of $.
 

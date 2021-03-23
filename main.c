@@ -14,7 +14,7 @@
 
 #include "engine/include/nfa.h"
 
-#define GRR_VERSION "2.1.5"
+#define GRR_VERSION "2.1.6"
 #define GRR_HISTORY ".grr_history"
 
 #ifndef MIN
@@ -55,32 +55,33 @@ typedef struct grrSimpleOptions {
     bool ignore_hidden;
 } grrSimpleOptions;
 
-int
+static int
 parseOptions(int argc, char **argv, grrOptions *options);
 
-void
+static void
 usage(const char *executable);
 
-int
+static int
 isExecutable(const char *path);
 
-int
+static int
 compareOptionsToHistory(const grrOptions *options);
 
-bool
+static bool
 readLine(FILE *f, char *destination, size_t size);
 
-int
+static int
 searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOptions *options);
 
-int
+static int
 searchFileForPattern(const char *path, long *line_no, const grrOptions *options);
 
-int
+static int
 executeEditor(const char *editor, const char *path, long line_no, bool verbose);
 
 int
-main(int argc, char **argv) {
+main(int argc, char **argv)
+{
     int ret;
     long line_no;
     grrOptions options = {0};
@@ -124,7 +125,8 @@ main(int argc, char **argv) {
                 goto done;
             }
         }
-    } else if (!options.no_history) {
+    }
+    else if (!options.no_history) {
         int fd;
         char starting_directory[PATH_MAX];
 
@@ -214,7 +216,8 @@ done:
                     }
                     unlink(tmp_file);
                 }
-            } else {
+            }
+            else {
                 if (options.verbose) {
                     fprintf(
                         stderr,
@@ -222,7 +225,8 @@ done:
                 }
                 unlink(tmp_file);
             }
-        } else {
+        }
+        else {
             unlink(tmp_file);
         }
     }
@@ -230,8 +234,9 @@ done:
     return ret;
 }
 
-int
-parseOptions(int argc, char **argv, grrOptions *options) {
+static int
+parseOptions(int argc, char **argv, grrOptions *options)
+{
     int ret, optval;
 
     options->search_pattern = NULL;
@@ -265,7 +270,8 @@ parseOptions(int argc, char **argv, grrOptions *options) {
             }
             if (temp[strlen(temp) - 1] == '/') {
                 ret = snprintf(options->starting_directory, PATH_MAX, "%s", temp);
-            } else {
+            }
+            else {
                 ret = snprintf(options->starting_directory, PATH_MAX, "%s/", temp);
             }
             if (ret >= PATH_MAX) {
@@ -333,7 +339,6 @@ parseOptions(int argc, char **argv, grrOptions *options) {
 
         case '?':
             fprintf(stderr, "Invalid option: %c\n", optopt);
-            usage(argv[0]);
             return GRR_APP_RET_BAD_DATA;
 
         case ':': fprintf(stderr, "-%c requires an argument.\n", optopt); return GRR_APP_RET_BAD_DATA;
@@ -344,15 +349,15 @@ parseOptions(int argc, char **argv, grrOptions *options) {
 
     if (!options->search_pattern) {
         fprintf(stderr, "No search pattern was provided.\n");
-        usage(argv[0]);
         return GRR_APP_RET_BAD_DATA;
     }
 
     return GRR_APP_RET_OK;
 }
 
-void
-usage(const char *executable) {
+static void
+usage(const char *executable)
+{
     printf("Usage: %s [options]\n", executable);
     printf("Options:\n");
     printf("\t-r <pattern>        -- Specify the search regex.  Required unless either -u or -h are\n");
@@ -376,8 +381,9 @@ usage(const char *executable) {
     printf("\t-h                  -- Print this message.\n");
 }
 
-int
-isExecutable(const char *path) {
+static int
+isExecutable(const char *path)
+{
     int ret;
     char line[PATH_MAX + 6];
     FILE *f;
@@ -397,7 +403,8 @@ isExecutable(const char *path) {
 
     if (fgets(line, sizeof(line), f)) {
         ret = line[0] ? GRR_APP_RET_OK : GRR_APP_RET_NOT_FOUND;
-    } else {
+    }
+    else {
         ret = GRR_APP_RET_FILE_ACCESS;
     }
     pclose(f);
@@ -405,8 +412,9 @@ isExecutable(const char *path) {
     return ret;
 }
 
-int
-compareOptionsToHistory(const grrOptions *options) {
+static int
+compareOptionsToHistory(const grrOptions *options)
+{
     int ret = GRR_APP_RET_BAD_DATA;
     size_t len;
     const char *home;
@@ -510,7 +518,8 @@ compareOptionsToHistory(const grrOptions *options) {
         if (strcmp(line, grrDescription(options->file_pattern)) != 0) {
             goto done;
         }
-    } else if (options->file_pattern) {
+    }
+    else if (options->file_pattern) {
         goto done;
     }
 
@@ -547,7 +556,8 @@ compareOptionsToHistory(const grrOptions *options) {
 
     if (observed_options.names_only) {
         ret = executeEditor(options->editor, line, 1, options->verbose);
-    } else {
+    }
+    else {
         char *colon_ptr, *temp;
         long line_no;
 
@@ -571,7 +581,6 @@ compareOptionsToHistory(const grrOptions *options) {
 
         ret = executeEditor(options->editor, line, line_no, options->verbose);
     }
-    ret = (ret == 0) ? GRR_APP_RET_OK : GRR_APP_RET_EXEC;
     goto done;
 
 failed_read:
@@ -579,7 +588,8 @@ failed_read:
     if (options->verbose) {
         if (ferror(f)) {
             fprintf(stderr, "Failed to read from %s.\n", history_file);
-        } else {
+        }
+        else {
             fprintf(stderr, "Unexpected end of file found in %s.\n", history_file);
         }
     }
@@ -592,8 +602,9 @@ done:
     return ret;
 }
 
-bool
-readLine(FILE *f, char *destination, size_t size) {
+static bool
+readLine(FILE *f, char *destination, size_t size)
+{
     size_t len;
 
     if (!fgets(destination, size, f)) {
@@ -608,8 +619,9 @@ readLine(FILE *f, char *destination, size_t size) {
     return true;
 }
 
-int
-searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOptions *options) {
+static int
+searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOptions *options)
+{
     int ret = GRR_APP_RET_OK;
     size_t offset, new_len;
     struct dirent *entry;
@@ -656,7 +668,8 @@ searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOp
                 ret = GRR_APP_RET_DONE;
                 goto done;
             }
-        } else if (S_ISDIR(file_stat.st_mode)) {
+        }
+        else if (S_ISDIR(file_stat.st_mode)) {
             DIR *subdir;
 
             if (depth + 1 == options->depth) {
@@ -698,8 +711,9 @@ done:
     return ret;
 }
 
-int
-searchFileForPattern(const char *path, long *line_no, const grrOptions *options) {
+static int
+searchFileForPattern(const char *path, long *line_no, const grrOptions *options)
+{
     int ret = GRR_APP_RET_NOT_FOUND;
     FILE *f;
     char line[2048];
@@ -755,7 +769,8 @@ searchFileForPattern(const char *path, long *line_no, const grrOptions *options)
                               options->verbose);
                 ret = GRR_APP_RET_DONE;
                 break;
-            } else if (options->names_only) {
+            }
+            else if (options->names_only) {
                 break;
             }
             continue;
@@ -775,10 +790,11 @@ searchFileForPattern(const char *path, long *line_no, const grrOptions *options)
         }
 
         printf("(%li) %s (line %zu): ", *line_no, path, file_line_no);
-        if (start > 15) {
+        if (start > 10) {
             printf("... ");
-            offset = start - 15;
-        } else {
+            offset = start - 10;
+        }
+        else {
             offset = 0;
         }
 
@@ -787,8 +803,9 @@ searchFileForPattern(const char *path, long *line_no, const grrOptions *options)
             printf("%s", change_color_to_red);
         }
         if (end - start > 50) {
-            printf("%.*s ... %.*s", 15, line + start, 15, line + end - 15);
-        } else {
+            printf("%.*s ... %.*s", 10, line + start, 10, line + end - 10);
+        }
+        else {
             printf("%.*s", (int)(end - start), line + start);
         }
         if (!options->colorless) {
@@ -797,7 +814,8 @@ searchFileForPattern(const char *path, long *line_no, const grrOptions *options)
 
         if (len - end > 50) {
             printf("%.*s ...\n", 50, line + end);
-        } else {
+        }
+        else {
             printf("%.*s\n", (int)(len - end), line + end);
         }
     }
@@ -807,54 +825,31 @@ searchFileForPattern(const char *path, long *line_no, const grrOptions *options)
     return ret;
 }
 
-int
-executeEditor(const char *editor, const char *path, long line_no, bool verbose) {
-    int status;
-    pid_t child;
+static int
+executeEditor(const char *editor, const char *path, long line_no, bool verbose)
+{
+    if (strncmp(editor, "vi", 3) == 0 || strncmp(editor, "vim", 4) == 0) {
+        char argument[50];
 
-    child = fork();
-    switch (child) {
-    case -1: perror("fork"); return -1;
-
-    case 0:
-        if (strncmp(editor, "vi", 3) == 0 || strncmp(editor, "vim", 4) == 0) {
-            char argument[50];
-
-            if (snprintf(argument, sizeof(argument), "+%li", line_no) >= (ssize_t)sizeof(line_no)) {
-                if (verbose) {
-                    fprintf(stderr, "line_no is too big to fit into buffer: %li\n", line_no);
-                }
-                exit(1);
-            }
+        if (snprintf(argument, sizeof(argument), "+%li", line_no) >= (ssize_t)sizeof(line_no)) {
             if (verbose) {
-                fprintf(stderr, "Executing: %s %s %s\n", editor, argument, path);
+                fprintf(stderr, "line_no is too big to fit into buffer: %li\n", line_no);
             }
-            execlp(editor, editor, argument, path, NULL);
-        } else {
-            if (verbose) {
-                fprintf(stderr, "Executing: %s %s\n", editor, path);
-            }
-            execlp(editor, editor, path, NULL);
+            return GRR_APP_RET_OVERFLOW;
         }
-
-        perror(editor);
-        exit(-2);
-
-    default:
-        while (waitpid(child, &status, 0) <= 0)
-            ;
-        break;
-    }
-
-    if (WIFSIGNALED(status)) {
         if (verbose) {
-            fprintf(stderr, "Child process was terminated by signal: %s\n", strsignal(WTERMSIG(status)));
+            fprintf(stderr, "Executing: %s %s %s\n", editor, argument, path);
         }
-        return WTERMSIG(status) + 1;
+        execlp(editor, editor, argument, path, NULL);
+    }
+    else {
+        if (verbose) {
+            fprintf(stderr, "Executing: %s %s\n", editor, path);
+        }
+        execlp(editor, editor, path, NULL);
     }
 
-    if (verbose) {
-        fprintf(stderr, "Child exited with status %i\n", WEXITSTATUS(status));
-    }
-    return WEXITSTATUS(status);
+    perror(editor);
+
+    return GRR_APP_RET_EXEC;
 }
