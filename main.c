@@ -14,7 +14,7 @@
 
 #include "engine/include/nfa.h"
 
-#define GRR_VERSION "2.1.6"
+#define GRR_VERSION "2.1.7"
 #define GRR_HISTORY ".grr_history"
 
 #ifndef MIN
@@ -41,18 +41,18 @@ typedef struct grrOptions {
     grrNfa file_pattern;
     long depth;
     long line_no;
-    bool names_only;
-    bool verbose;
-    bool ignore_hidden;
-    bool no_history;
-    bool colorless;
+    unsigned int names_only : 1;
+    unsigned int verbose : 1;
+    unsigned int ignore_hidden : 1;
+    unsigned int no_history : 1;
+    unsigned int colorless : 1;
 } grrOptions;
 
 typedef struct grrSimpleOptions {
     long depth;
-    bool file_pattern;
-    bool names_only;
-    bool ignore_hidden;
+    unsigned int file_pattern : 1;
+    unsigned int names_only : 1;
+    unsigned int ignore_hidden : 1;
 } grrSimpleOptions;
 
 static int
@@ -71,7 +71,8 @@ static bool
 readLine(FILE *f, char *destination, size_t size);
 
 static int
-searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOptions *options);
+searchDirectoryTree(DIR *dir, char *path, size_t offset, long depth, long *line_no,
+                    const grrOptions *options);
 
 static int
 searchFileForPattern(const char *path, long *line_no, const grrOptions *options);
@@ -191,7 +192,7 @@ main(int argc, char **argv)
         goto done;
     }
     line_no = -1;
-    searchDirectoryTree(dir, path, -1, &line_no, &options);
+    searchDirectoryTree(dir, path, strlen(path), -1, &line_no, &options);
     closedir(dir);
 
 done:
@@ -337,9 +338,7 @@ parseOptions(int argc, char **argv, grrOptions *options)
 
         case 'h': usage(argv[0]); return GRR_APP_RET_DONE;
 
-        case '?':
-            fprintf(stderr, "Invalid option: %c\n", optopt);
-            return GRR_APP_RET_BAD_DATA;
+        case '?': fprintf(stderr, "Invalid option: %c\n", optopt); return GRR_APP_RET_BAD_DATA;
 
         case ':': fprintf(stderr, "-%c requires an argument.\n", optopt); return GRR_APP_RET_BAD_DATA;
 
@@ -620,13 +619,12 @@ readLine(FILE *f, char *destination, size_t size)
 }
 
 static int
-searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOptions *options)
+searchDirectoryTree(DIR *dir, char *path, size_t offset, long depth, long *line_no,
+                    const grrOptions *options)
 {
     int ret = GRR_APP_RET_OK;
-    size_t offset, new_len;
+    size_t new_len;
     struct dirent *entry;
-
-    offset = strlen(path);
 
     while ((entry = readdir(dir))) {
         struct stat file_stat;
@@ -695,7 +693,7 @@ searchDirectoryTree(DIR *dir, char *path, long depth, long *line_no, const grrOp
                 continue;
             }
 
-            ret = searchDirectoryTree(subdir, path, depth + 1, line_no, options);
+            ret = searchDirectoryTree(subdir, path, new_len, depth + 1, line_no, options);
             closedir(subdir);
             if (ret == GRR_APP_RET_DONE) {
                 goto done;

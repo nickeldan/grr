@@ -14,7 +14,7 @@ all: grr
 
 grr: main.o engine/libgrrengine.a
 	$(CC) $^ -o $@
-	strip $@
+	if [ "$(debug)" = no ]; then strip $@; fi
 
 main.o: main.c engine/include/*.h
 	$(CC) $(COMPILER_FLAGS) -c $<
