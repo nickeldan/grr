@@ -1,3 +1,7 @@
+2.1.7:
+    - The temporary history file is now created in the HOME directory.
+    - Fixed some minor typos.
+
 2.1.6:
     - Changed the width of the displayed results.
     - The editor is no longer run as a forked child process but is exec'ed in the main process.

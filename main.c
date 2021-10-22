@@ -55,6 +55,11 @@ typedef struct grrSimpleOptions {
     unsigned int ignore_hidden : 1;
 } grrSimpleOptions;
 
+static char tmp_file[PATH_MAX];
+
+static void
+unlinkTmpFile(void);
+
 static int
 parseOptions(int argc, char **argv, grrOptions *options);
 
@@ -87,7 +92,6 @@ main(int argc, char **argv)
     long line_no;
     grrOptions options = {0};
     char path[PATH_MAX];
-    char tmp_file[] = "./.grr_tempXXXXXX";
     DIR *dir;
 
     options.starting_directory = path;
@@ -130,17 +134,25 @@ main(int argc, char **argv)
     else if (!options.no_history) {
         int fd;
         char starting_directory[PATH_MAX];
+        char *home;
 
         options.editor = NULL;
+
+        home = getenv("HOME");
+        snprintf(tmp_file, sizeof(tmp_file), "%s/grr_tmpXXXXXX", home ? home : ".");
+
+        options.editor = NULL;
+
         fd = mkstemp(tmp_file);
         if (fd == -1) {
             if (options.verbose) {
-                fprintf(stderr, "Failed to create create history file: %s\n", strerror(errno));
+                fprintf(stderr, "Failed to create history file: %s\n", strerror(errno));
             }
 
             ret = GRR_APP_RET_FILE_ACCESS;
             goto done;
         }
+        atexit(unlinkTmpFile);
 
         options.logger = fdopen(fd, "wb");
         if (!options.logger) {
@@ -233,6 +245,12 @@ done:
     }
 
     return ret;
+}
+
+static void
+unlinkTmpFile(void)
+{
+    unlink(tmp_file);
 }
 
 static int
@@ -829,7 +847,7 @@ executeEditor(const char *editor, const char *path, long line_no, bool verbose)
     if (strncmp(editor, "vi", 3) == 0 || strncmp(editor, "vim", 4) == 0) {
         char argument[50];
 
-        if (snprintf(argument, sizeof(argument), "+%li", line_no) >= (ssize_t)sizeof(line_no)) {
+        if (snprintf(argument, sizeof(argument), "+%li", line_no) >= (ssize_t)sizeof(argument)) {
             if (verbose) {
                 fprintf(stderr, "line_no is too big to fit into buffer: %li\n", line_no);
             }
